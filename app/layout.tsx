@@ -73,7 +73,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} ${geistMono.variable} bg-background overflow-y-auto`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${inter.variable} ${playfair.variable} ${geistMono.variable} bg-background overflow-y-auto`}>
       <body className="font-sans antialiased bg-background text-foreground selection:bg-slate-200 selection:text-slate-900 overflow-y-auto overflow-x-hidden">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}

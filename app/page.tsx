@@ -80,7 +80,7 @@ export default function Home() {
     <LocaleProvider>
       <LoadingScreen />
       <SmoothScroll />
-      <main className="relative overflow-y-auto">
+      <main className="relative min-h-screen overflow-y-auto" style={{ position: 'relative' }}>
         <Navigation />
         <HeroSlider />
         <ShowroomBanner />
