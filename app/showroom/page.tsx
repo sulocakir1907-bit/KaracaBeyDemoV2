@@ -816,8 +816,8 @@ function ScrollToTopButton() {
 }
 
 export default function ShowroomPage() {
-  // Locale state
-  const [locale, setLocale] = useState<Locale>('en')
+  // Locale state - Turkish as default
+  const [locale, setLocale] = useState<Locale>('tr')
   const t = getTranslation(locale)
   
   // Filter states
