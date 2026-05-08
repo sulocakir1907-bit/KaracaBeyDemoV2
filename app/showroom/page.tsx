@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,24 +19,12 @@ import {
   MessageCircle,
   ArrowLeft,
   ZoomIn,
-  Menu,
   Filter,
-  SlidersHorizontal,
-  ChevronUp
+  ChevronUp,
+  Home,
+  Phone
 } from 'lucide-react'
-import { 
-  FABRIC_DATA, 
-  type FabricCategory, 
-  type FabricProduct,
-  type UsageArea,
-  categoryLabels,
-  usageAreaLabels,
-  formatComposition,
-  getCategories,
-  washingInstructionLabels
-} from '@/lib/fabric-data'
-import { cn } from '@/lib/utils'
-import { type Locale, locales, getTranslation } from '@/lib/i18n'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sheet,
   SheetContent,
@@ -44,9 +32,20 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
-// Price category display
+import { 
+  FABRIC_DATA, 
+  type FabricProduct, 
+  type FabricCategory,
+  categoryLabels,
+  usageAreaLabels,
+  formatComposition,
+  getCategories,
+  washingInstructionLabels
+} from '@/lib/fabric-data'
+import { type Locale, getTranslation } from '@/lib/i18n'
+
+// Fiyat kategorisi gosterimi
 const priceLabels: Record<number, string> = {
   1: '$',
   2: '$$',
@@ -55,198 +54,130 @@ const priceLabels: Record<number, string> = {
   5: '$$$$$',
 }
 
-// Sort options
+// Siralama secenekleri
 type SortOption = 'name-asc' | 'name-desc' | 'weight-asc' | 'weight-desc' | 'price-asc' | 'price-desc'
 
-// Texture Magnifier Component
+// Coklu dil etiketleri
+const labels = {
+  width: { tr: 'EN', en: 'WIDTH', ru: 'ШИРИНА' },
+  gsm: { tr: 'GSM', en: 'GSM', ru: 'ПЛОТНОСТЬ' },
+  price: { tr: 'FİYAT', en: 'PRICE', ru: 'ЦЕНА' },
+  viewDetails: { tr: 'Detayları Gör', en: 'View Details', ru: 'Подробнее' },
+  hoverToMagnify: { tr: 'Büyütmek için üzerine gelin', en: 'Hover to magnify', ru: 'Наведите для увеличения' },
+  technicalSpecs: { tr: 'Teknik Özellikler', en: 'Technical Specifications', ru: 'Технические Характеристики' },
+  fabricProfile: { tr: 'Kumaş Profili', en: 'Fabric Profile', ru: 'Профиль Ткани' },
+  availableColors: { tr: 'Mevcut Renkler', en: 'Available Colors', ru: 'Доступные Цвета' },
+  careInstructions: { tr: 'Bakım Talimatları', en: 'Care Instructions', ru: 'Инструкции по Уходу' },
+  requestQuote: { tr: 'WhatsApp ile Teklif Al', en: 'Request Quote via WhatsApp', ru: 'Запросить Цену через WhatsApp' },
+  minOrder: { tr: 'Minimum sipariş', en: 'Minimum order', ru: 'Минимальный заказ' },
+  meters: { tr: 'metre', en: 'meters', ru: 'метров' },
+  composition: { tr: 'KOMPOZİSYON', en: 'COMPOSITION', ru: 'СОСТАВ' },
+  recommendedUse: { tr: 'ÖNERİLEN KULLANIM', en: 'RECOMMENDED USE', ru: 'РЕКОМЕНДУЕМОЕ ПРИМЕНЕНИЕ' },
+  martindale: { tr: 'MARTINDALE', en: 'MARTINDALE', ru: 'МАРТИНДЕЙЛ' },
+  lightFast: { tr: 'IŞIK HASLIĞI', en: 'LIGHT FAST', ru: 'СВЕТОСТОЙКОСТЬ' },
+  fireRated: { tr: 'YANMAZ', en: 'FIRE RATED', ru: 'ОГНЕСТОЙКИЙ' },
+  frCertified: { tr: 'FR Sertifikalı', en: 'FR Certified', ru: 'FR Сертификат' },
+  close: { tr: 'Kapat', en: 'Close', ru: 'Закрыть' },
+  examine: { tr: 'İncele', en: 'View', ru: 'Смотреть' },
+  sort: { tr: 'Sıralama', en: 'Sort By', ru: 'Сортировка' },
+  filterSort: { tr: 'Filtre & Sıralama', en: 'Filter & Sort', ru: 'Фильтр и Сортировка' },
+  selectCatSort: { tr: 'Kategori ve sıralama seçin', en: 'Select category and sorting', ru: 'Выберите категорию и сортировку' },
+  fabricDescription: {
+    tr: (name: string, category: string, usage: string, weight: number, width: number) => 
+      `${name}, ${usage} için ideal premium bir ${category} kumaştır. ${weight} g/m² ağırlığı ve ${width}cm eni ile bu kumaş mükemmel dayanıklılık ve her iç mekanı yücelten lüks bir his sunar.`,
+    en: (name: string, category: string, usage: string, weight: number, width: number) => 
+      `${name} is a premium ${category} fabric ideal for ${usage}. With a weight of ${weight} g/m² and ${width}cm width, this fabric offers excellent durability and a luxurious feel that elevates any interior space.`,
+    ru: (name: string, category: string, usage: string, weight: number, width: number) => 
+      `${name} — это премиальная ткань ${category}, идеальная для ${usage}. С плотностью ${weight} г/м² и шириной ${width}см эта ткань обеспечивает отличную прочность и роскошное ощущение.`
+  },
+  whatsappMessage: {
+    tr: (name: string, sku: string) => `Merhaba, ${name} (${sku}) hakkında bilgi almak istiyorum.`,
+    en: (name: string, sku: string) => `Hello, I am interested in ${name} (${sku}).`,
+    ru: (name: string, sku: string) => `Здравствуйте, интересует ${name} (${sku}).`
+  }
+}
+
+// ============================================
+// TEXTURE MAGNIFIER COMPONENT
+// ============================================
 function TextureMagnifier({ 
   src, 
   alt,
-  magnification = 2.5
+  locale
 }: { 
   src: string
   alt: string
-  magnification?: number
+  locale: Locale
 }) {
-  const [showMagnifier, setShowMagnifier] = useState(false)
-  const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 })
-  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 })
-  const imageRef = useRef<HTMLDivElement>(null)
+  const [isHovering, setIsHovering] = useState(false)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!imageRef.current) return
-    
-    const { left, top, width, height } = imageRef.current.getBoundingClientRect()
-    const x = ((e.clientX - left) / width) * 100
-    const y = ((e.clientY - top) / height) * 100
-    
-    setMagnifierPosition({ x, y })
-    setCursorPosition({ x: e.clientX - left, y: e.clientY - top })
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    setMousePosition({ x, y })
   }, [])
 
   return (
     <div 
-      ref={imageRef}
-      className="relative w-full aspect-square overflow-hidden cursor-crosshair bg-slate-100"
-      onMouseEnter={() => setShowMagnifier(true)}
-      onMouseLeave={() => setShowMagnifier(false)}
+      ref={containerRef}
+      className="relative aspect-square overflow-hidden bg-slate-100 cursor-crosshair group"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       onMouseMove={handleMouseMove}
     >
       <Image
         src={src}
         alt={alt}
         fill
-        className="object-cover"
+        className="object-cover transition-transform duration-300"
         sizes="(max-width: 768px) 100vw, 50vw"
         priority
       />
       
-      {/* Magnifier Lens - Desktop only */}
+      {/* Magnifier lens - sadece desktop */}
       <AnimatePresence>
-        {showMagnifier && (
+        {isHovering && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-white shadow-2xl pointer-events-none overflow-hidden hidden md:block"
+            className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl pointer-events-none overflow-hidden hidden md:block"
             style={{
-              left: cursorPosition.x - 80,
-              top: cursorPosition.y - 80,
-              backgroundImage: `url(${src})`,
-              backgroundSize: `${magnification * 100}%`,
-              backgroundPosition: `${magnifierPosition.x}% ${magnifierPosition.y}%`,
-              backgroundRepeat: 'no-repeat',
+              left: `calc(${mousePosition.x}% - 5rem)`,
+              top: `calc(${mousePosition.y}% - 5rem)`,
             }}
           >
-            <div className="absolute inset-0 rounded-full ring-4 ring-white/20" />
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(${src})`,
+                backgroundSize: '300%',
+                backgroundPosition: `${mousePosition.x}% ${mousePosition.y}%`,
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ZoomIn className="w-6 h-6 text-white/50" />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* Hint */}
+
+      {/* Ipucu */}
       <div className="absolute bottom-3 right-3 hidden md:flex items-center gap-1.5 px-2 py-1 bg-slate-900/80 text-white text-xs">
         <ZoomIn className="w-3 h-3" />
-        <span className="font-sans font-light">Hover to magnify</span>
+        <span className="font-sans font-light">{labels.hoverToMagnify[locale]}</span>
       </div>
     </div>
   )
 }
 
-// Product Card with Magnifier Preview
-function ProductCard({ 
-  product, 
-  locale, 
-  onClick,
-  index
-}: { 
-  product: FabricProduct
-  locale: Locale
-  onClick: () => void
-  index: number
-}) {
-  const t = getTranslation(locale)
-  const [isHovered, setIsHovered] = useState(false)
-  
-  return (
-    <motion.div 
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
-      className="group bg-white border border-slate-200 hover:border-slate-400 transition-all duration-300 cursor-pointer active:scale-[0.98]"
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Image Container */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
-        <Image
-          src={product.images.primary}
-          alt={product.name}
-          fill
-          className={cn(
-            "object-cover transition-transform duration-700",
-            isHovered && "scale-110"
-          )}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-          loading={index < 8 ? "eager" : "lazy"}
-        />
-        
-        {/* Badges */}
-        <div className="absolute top-2 left-2 md:top-3 md:left-3 flex flex-col gap-1.5 md:gap-2">
-          {product.new && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 md:px-2 md:py-1 bg-slate-900 text-white text-[8px] md:text-[10px] font-sans font-bold tracking-wider uppercase">
-              <Sparkles className="w-2.5 h-2.5 md:w-3 md:h-3" />
-              {t.showroom.new}
-            </span>
-          )}
-          {product.bestseller && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 md:px-2 md:py-1 bg-amber-500 text-white text-[8px] md:text-[10px] font-sans font-bold tracking-wider uppercase">
-              <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
-              {t.showroom.bestseller}
-            </span>
-          )}
-          {product.fireRetardant && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 md:px-2 md:py-1 bg-red-600 text-white text-[8px] md:text-[10px] font-sans font-bold tracking-wider uppercase">
-              <Flame className="w-2.5 h-2.5 md:w-3 md:h-3" />
-              FR
-            </span>
-          )}
-        </div>
-
-        {/* SKU Badge */}
-        <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3">
-          <span className="px-1.5 py-0.5 md:px-2 md:py-1 bg-white/95 backdrop-blur-sm text-slate-600 text-[8px] md:text-[10px] font-mono tracking-wider">
-            {product.sku}
-          </span>
-        </div>
-        
-        {/* Hover Overlay - Desktop only */}
-        <motion.div
-          initial={false}
-          animate={{ opacity: isHovered ? 1 : 0 }}
-          className="absolute inset-0 bg-slate-900/40 items-center justify-center hidden md:flex"
-        >
-          <span className="px-4 py-2 bg-white text-slate-900 text-sm font-sans font-medium tracking-wider uppercase">
-            View Details
-          </span>
-        </motion.div>
-      </div>
-
-      {/* Content */}
-      <div className="p-3 md:p-4">
-        {/* Category Tag */}
-        <span className="text-[9px] md:text-[10px] font-sans font-bold tracking-[0.15em] md:tracking-[0.2em] uppercase text-slate-500">
-          {categoryLabels[product.category][locale]}
-        </span>
-        
-        {/* Product Name */}
-        <h3 className="mt-0.5 md:mt-1 font-serif text-base md:text-lg font-medium text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-1">
-          {product.name}
-        </h3>
-
-        {/* Technical Specs Grid */}
-        <div className="mt-2 md:mt-3 grid grid-cols-3 gap-1 md:gap-1.5">
-          <div className="bg-slate-50 py-1.5 md:py-2 px-1 text-center border border-slate-100">
-            <span className="block text-[8px] md:text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider">WIDTH</span>
-            <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{product.width}cm</span>
-          </div>
-          <div className="bg-slate-50 py-1.5 md:py-2 px-1 text-center border border-slate-100">
-            <span className="block text-[8px] md:text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider">GSM</span>
-            <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{product.weight}</span>
-          </div>
-          <div className="bg-slate-50 py-1.5 md:py-2 px-1 text-center border border-slate-100">
-            <span className="block text-[8px] md:text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider">PRICE</span>
-            <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{priceLabels[product.priceCategory]}</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-// Product Detail Drawer
+// ============================================
+// PRODUCT DETAIL DRAWER
+// ============================================
 function ProductDetailDrawer({
   product,
   isOpen,
@@ -260,10 +191,9 @@ function ProductDetailDrawer({
 }) {
   const t = getTranslation(locale)
   
-  // Handle browser back button
+  // Tarayici geri tusu destegi
   useEffect(() => {
     if (isOpen && product) {
-      // Push state when drawer opens
       window.history.pushState({ productId: product.id }, '', `?product=${product.sku}`)
       
       const handlePopState = () => {
@@ -277,18 +207,17 @@ function ProductDetailDrawer({
     }
   }, [isOpen, product, onClose])
   
-  // Handle close and clean URL
+  // Kapatma ve URL temizleme
   const handleClose = useCallback(() => {
-    // Remove the query param from URL without adding to history
     window.history.replaceState({}, '', window.location.pathname)
     onClose()
   }, [onClose])
   
   if (!product) return null
   
-  const whatsappMessage = encodeURIComponent(
-    `Hello Karaca Bey, I am interested in ${product.name} (${product.sku}). I would like to request a quote for my project.`
-  )
+  const whatsappMessage = encodeURIComponent(labels.whatsappMessage[locale](product.name, product.sku))
+  
+  const usageText = product.usageAreas.slice(0, 2).map(area => usageAreaLabels[area][locale].toLowerCase()).join(locale === 'tr' ? ' ve ' : locale === 'ru' ? ' и ' : ' and ')
   
   return (
     <Sheet open={isOpen} onOpenChange={handleClose}>
@@ -302,35 +231,57 @@ function ProductDetailDrawer({
                   <SheetTitle className="font-serif text-lg md:text-xl font-medium text-slate-900">
                     {product.name}
                   </SheetTitle>
-                  <SheetDescription className="text-[10px] md:text-xs font-sans font-bold tracking-[0.15em] md:tracking-[0.2em] uppercase text-slate-500 mt-1">
+                  <SheetDescription className="text-[10px] md:text-xs font-sans font-bold tracking-[0.15em] uppercase text-slate-500 mt-1">
                     {categoryLabels[product.category][locale]} | {product.sku}
                   </SheetDescription>
                 </div>
-                {/* Close Button */}
+                {/* Kapatma Butonu */}
                 <button
                   onClick={handleClose}
-                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
-                  aria-label="Close"
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors rounded"
+                  aria-label={labels.close[locale]}
                 >
                   <X className="w-5 h-5 text-slate-600" />
                 </button>
               </div>
             </SheetHeader>
-            
-            {/* Texture Magnifier */}
-            <div className="px-4 pt-4">
+
+            {/* Product Image with Magnifier */}
+            <div className="p-4">
               <TextureMagnifier 
-                src={product.images.primary} 
+                src={product.images.primary}
                 alt={product.name}
-                magnification={2.5}
+                locale={locale}
               />
             </div>
-            
-            {/* Technical Specifications Table */}
-            <div className="px-4 pt-6">
-              <h4 className="font-serif text-base md:text-lg font-bold uppercase tracking-widest text-slate-900 mb-4">
-                Technical Specifications
-              </h4>
+
+            {/* Badges */}
+            <div className="px-4 pb-4 flex gap-2 flex-wrap">
+              {product.new && (
+                <span className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  {t.showroom.new}
+                </span>
+              )}
+              {product.bestseller && (
+                <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  {t.showroom.bestseller}
+                </span>
+              )}
+              {product.fireRetardant && (
+                <span className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Flame className="w-3 h-3" />
+                  {labels.fireRated[locale]}
+                </span>
+              )}
+            </div>
+
+            {/* Technical Specifications */}
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-4 uppercase tracking-wider">
+                {labels.technicalSpecs[locale]}
+              </h3>
               
               <div className="space-y-0 border border-slate-200">
                 {/* Width */}
@@ -338,327 +289,141 @@ function ProductDetailDrawer({
                   <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
                     <Ruler className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
                   </div>
-                  <div className="flex-1 px-3 md:px-4 py-2.5 md:py-3">
-                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">WIDTH</span>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.width[locale]}</span>
                     <span className="block text-sm font-sans font-light text-slate-900">{product.width} cm</span>
                   </div>
                 </div>
-                
-                {/* Weight / GSM */}
+
+                {/* Weight */}
                 <div className="flex items-center border-b border-slate-200">
                   <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
                     <Weight className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
                   </div>
-                  <div className="flex-1 px-3 md:px-4 py-2.5 md:py-3">
-                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">GSM</span>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.gsm[locale]}</span>
                     <span className="block text-sm font-sans font-light text-slate-900">{product.weight} g/m²</span>
                   </div>
                 </div>
-                
+
                 {/* Composition */}
                 <div className="flex items-center border-b border-slate-200">
                   <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
                     <Droplets className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
                   </div>
-                  <div className="flex-1 px-3 md:px-4 py-2.5 md:py-3">
-                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">COMPOSITION</span>
-                    <span className="block text-sm font-sans font-light text-slate-900">{formatComposition(product.composition)}</span>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.composition[locale]}</span>
+                    <span className="block text-sm font-sans font-light text-slate-900">{formatComposition(product.composition, locale)}</span>
                   </div>
                 </div>
-                
-                {/* Usage Areas */}
+
+                {/* Usage */}
                 <div className="flex items-center">
                   <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
                     <Shirt className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
                   </div>
-                  <div className="flex-1 px-3 md:px-4 py-2.5 md:py-3">
-                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">RECOMMENDED USE</span>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.recommendedUse[locale]}</span>
                     <span className="block text-sm font-sans font-light text-slate-900">
                       {product.usageAreas.map(area => usageAreaLabels[area][locale]).join(', ')}
                     </span>
                   </div>
                 </div>
               </div>
-              
+
               {/* Additional Specs */}
               {(product.martindale || product.lightFastness || product.fireRetardant) && (
-                <div className="mt-4 grid grid-cols-3 gap-1.5 md:gap-2">
+                <div className="mt-4 grid grid-cols-3 gap-1.5">
                   {product.martindale && (
                     <div className="bg-slate-50 p-2 md:p-3 text-center border border-slate-200">
-                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">MARTINDALE</span>
+                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.martindale[locale]}</span>
                       <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{product.martindale.toLocaleString()}</span>
                     </div>
                   )}
                   {product.lightFastness && (
                     <div className="bg-slate-50 p-2 md:p-3 text-center border border-slate-200">
-                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">LIGHT FAST</span>
+                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.lightFast[locale]}</span>
                       <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{product.lightFastness}/8</span>
                     </div>
                   )}
                   {product.fireRetardant && (
                     <div className="bg-red-50 p-2 md:p-3 text-center border border-red-200">
-                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-red-400">FIRE RATED</span>
-                      <span className="block text-xs md:text-sm font-sans font-light text-red-700">FR Certified</span>
+                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-red-400">{labels.fireRated[locale]}</span>
+                      <span className="block text-xs md:text-sm font-sans font-light text-red-700">{labels.frCertified[locale]}</span>
                     </div>
                   )}
                 </div>
               )}
             </div>
-            
-            {/* Functionality Text */}
-            <div className="px-4 pt-6">
-              <h4 className="font-serif text-base md:text-lg font-bold uppercase tracking-widest text-slate-900 mb-3">
-                Fabric Profile
-              </h4>
+
+            {/* Fabric Profile */}
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-3 uppercase tracking-wider">
+                {labels.fabricProfile[locale]}
+              </h3>
               <p className="text-sm font-sans font-light text-slate-600 leading-relaxed">
-                {product.name} is a premium {categoryLabels[product.category][locale].toLowerCase()} fabric ideal for {product.usageAreas.slice(0, 2).map(area => usageAreaLabels[area][locale].toLowerCase()).join(' and ')}. 
-                With a weight of {product.weight} g/m² and {product.width}cm width, this fabric offers excellent durability and a luxurious feel that elevates any interior space.
+                {labels.fabricDescription[locale](
+                  product.name,
+                  categoryLabels[product.category][locale].toLowerCase(),
+                  usageText,
+                  product.weight,
+                  product.width
+                )}
               </p>
             </div>
-            
+
             {/* Colors */}
-            <div className="px-4 pt-6">
-              <h4 className="font-serif text-base md:text-lg font-bold uppercase tracking-widest text-slate-900 mb-3">
-                Available Colors
-              </h4>
-              <div className="flex flex-wrap gap-1.5 md:gap-2">
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-3 uppercase tracking-wider">
+                {labels.availableColors[locale]}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
                 {product.colors.map((color, idx) => (
-                  <span 
-                    key={idx}
-                    className="px-2 py-1 md:px-3 md:py-1.5 bg-slate-100 text-slate-700 text-[10px] md:text-xs font-sans font-light border border-slate-200"
-                  >
+                  <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-sans border border-slate-200">
                     {color}
                   </span>
                 ))}
               </div>
             </div>
-            
+
             {/* Care Instructions */}
-            <div className="px-4 pt-6">
-              <h4 className="font-serif text-base md:text-lg font-bold uppercase tracking-widest text-slate-900 mb-3">
-                Care Instructions
-              </h4>
-              <div className="flex flex-wrap gap-1.5 md:gap-2">
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-3 uppercase tracking-wider">
+                {labels.careInstructions[locale]}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
                 {product.washingInstructions.map((instruction, idx) => (
-                  <span 
-                    key={idx}
-                    className="px-2 py-1 md:px-3 md:py-1.5 bg-slate-50 text-slate-600 text-[10px] md:text-xs font-sans font-light border border-slate-200"
-                  >
+                  <span key={idx} className="px-2 py-1 bg-slate-50 text-slate-600 text-xs font-sans border border-slate-200">
                     {washingInstructionLabels[instruction][locale]}
                   </span>
                 ))}
               </div>
             </div>
-            
-            {/* CTA - Request Quote */}
-            <div className="px-4 pt-8 pb-4">
+
+            {/* Request Quote Button */}
+            <div className="px-4 pb-4">
               <a
                 href={`https://wa.me/905551234567?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-3 w-full py-3.5 md:py-4 bg-green-600 text-white font-sans text-sm font-medium tracking-wider uppercase hover:bg-green-700 active:bg-green-800 transition-colors"
+                className="w-full flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-white py-4 px-6 font-sans font-medium transition-colors"
               >
                 <MessageCircle className="w-5 h-5" />
-                Request Quote via WhatsApp
+                {labels.requestQuote[locale]}
               </a>
-              <p className="mt-3 text-center text-[10px] md:text-xs font-sans font-light text-slate-500">
-                Minimum order: {product.minOrder} meters
+              <p className="mt-3 text-center text-xs font-sans font-light text-slate-500">
+                {labels.minOrder[locale]}: {product.minOrder} {labels.meters[locale]}
               </p>
             </div>
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
-  )
-}
 
-// Sidebar Category Navigation
-function CategorySidebar({
-  selectedCategory,
-  setSelectedCategory,
-  locale,
-  productCounts
-}: {
-  selectedCategory: FabricCategory | null
-  setSelectedCategory: (cat: FabricCategory | null) => void
-  locale: Locale
-  productCounts: Record<FabricCategory | 'all', number>
-}) {
-  const categories = getCategories()
-  
-  return (
-    <aside className="w-64 flex-shrink-0 hidden lg:block">
-      <div className="sticky top-[136px]">
-        <h2 className="font-serif text-lg font-bold uppercase tracking-widest text-slate-900 mb-6">
-          Categories
-        </h2>
-        
-        <nav className="space-y-1">
-          {/* All Fabrics */}
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={cn(
-              "w-full flex items-center justify-between px-4 py-3 text-left transition-all duration-200 border-l-2",
-              selectedCategory === null
-                ? "bg-slate-900 text-white border-slate-900"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-transparent hover:border-slate-300"
-            )}
-          >
-            <span className="font-sans text-sm font-light">All Fabrics</span>
-            <span className={cn(
-              "text-xs font-sans font-light",
-              selectedCategory === null ? "text-slate-400" : "text-slate-400"
-            )}>
-              {productCounts.all}
-            </span>
-          </button>
-          
-          {/* Category List */}
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={cn(
-                "w-full flex items-center justify-between px-4 py-3 text-left transition-all duration-200 border-l-2",
-                selectedCategory === cat
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-transparent hover:border-slate-300"
-              )}
-            >
-              <span className="font-sans text-sm font-light">{categoryLabels[cat][locale]}</span>
-              <span className={cn(
-                "text-xs font-sans font-light",
-                selectedCategory === cat ? "text-slate-400" : "text-slate-400"
-              )}>
-                {productCounts[cat] || 0}
-              </span>
-            </button>
-          ))}
-        </nav>
-      </div>
-    </aside>
-  )
-}
-
-// Mobile Filter Sheet
-function MobileFilterSheet({
-  isOpen,
-  onClose,
-  selectedCategory,
-  setSelectedCategory,
-  locale,
-  productCounts,
-  sortBy,
-  setSortBy
-}: {
-  isOpen: boolean
-  onClose: () => void
-  selectedCategory: FabricCategory | null
-  setSelectedCategory: (cat: FabricCategory | null) => void
-  locale: Locale
-  productCounts: Record<FabricCategory | 'all', number>
-  sortBy: SortOption
-  setSortBy: (sort: SortOption) => void
-}) {
-  const categories = getCategories()
-  
-  const sortLabels: Record<SortOption, string> = {
-    'name-asc': 'Name (A-Z)',
-    'name-desc': 'Name (Z-A)',
-    'weight-asc': 'Weight (Low to High)',
-    'weight-desc': 'Weight (High to Low)',
-    'price-asc': 'Price (Low to High)',
-    'price-desc': 'Price (High to Low)',
-  }
-
-  return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[85vh] p-0 bg-white rounded-t-2xl">
-        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-3 mb-2" />
-        <ScrollArea className="h-full">
-          <div className="px-4 pb-8">
-            <SheetHeader className="pb-4 border-b border-slate-200">
-              <SheetTitle className="font-serif text-xl font-bold text-slate-900 text-left">
-                Filters & Sort
-              </SheetTitle>
-              <SheetDescription className="sr-only">
-                Filter products by category and sort order
-              </SheetDescription>
-            </SheetHeader>
-            
-            {/* Sort Section */}
-            <div className="pt-6">
-              <h3 className="font-sans text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Sort By
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(sortLabels).map(([value, label]) => (
-                  <button
-                    key={value}
-                    onClick={() => setSortBy(value as SortOption)}
-                    className={cn(
-                      "px-3 py-2.5 text-sm font-sans font-light text-left border transition-colors",
-                      sortBy === value
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Categories Section */}
-            <div className="pt-8">
-              <h3 className="font-sans text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Categories
-              </h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    setSelectedCategory(null)
-                    onClose()
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between px-4 py-3 text-left border transition-colors",
-                    selectedCategory === null
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-slate-200"
-                  )}
-                >
-                  <span className="font-sans text-sm">All Fabrics</span>
-                  <span className="text-xs font-light opacity-70">{productCounts.all}</span>
-                </button>
-                
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setSelectedCategory(cat)
-                      onClose()
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between px-4 py-3 text-left border transition-colors",
-                      selectedCategory === cat
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-slate-700 border-slate-200"
-                    )}
-                  >
-                    <span className="font-sans text-sm">{categoryLabels[cat][locale]}</span>
-                    <span className="text-xs font-light opacity-70">{productCounts[cat] || 0}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Apply Button */}
-            <div className="pt-8">
+            {/* Back button for mobile */}
+            <div className="px-4 pb-4 md:hidden">
               <button
-                onClick={onClose}
-                className="w-full py-4 bg-slate-900 text-white font-sans text-sm font-medium uppercase tracking-wider hover:bg-slate-800 transition-colors"
+                onClick={handleClose}
+                className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 py-3 px-6 font-sans text-sm transition-colors hover:bg-slate-50 active:bg-slate-100"
               >
-                Apply Filters
+                <ArrowLeft className="w-4 h-4" />
+                {t.showroom.backToShowroom}
               </button>
             </div>
           </div>
@@ -668,57 +433,321 @@ function MobileFilterSheet({
   )
 }
 
-// Language Selector Component
-function LanguageSelector({ locale, setLocale, isMobile = false }: { locale: Locale; setLocale: (l: Locale) => void; isMobile?: boolean }) {
+// ============================================
+// PRODUCT CARD COMPONENT
+// ============================================
+function ProductCard({
+  product,
+  onClick,
+  locale,
+  index
+}: {
+  product: FabricProduct
+  onClick: () => void
+  locale: Locale
+  index: number
+}) {
+  const t = getTranslation(locale)
+  const [isHovered, setIsHovered] = useState(false)
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.2) }}
+      className="group cursor-pointer bg-white border border-slate-200 hover:border-slate-400 hover:shadow-lg transition-all duration-300 active:scale-[0.98]"
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Image */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+        <Image
+          src={product.images.primary}
+          alt={product.name}
+          fill
+          className={`object-cover transition-transform duration-700 ${isHovered ? 'scale-110' : 'scale-100'}`}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          loading={index < 8 ? "eager" : "lazy"}
+        />
+        
+        {/* Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {product.new && (
+            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5" />
+              {t.showroom.new}
+            </span>
+          )}
+          {product.bestseller && (
+            <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+              <TrendingUp className="w-2.5 h-2.5" />
+              {t.showroom.bestseller}
+            </span>
+          )}
+          {product.fireRetardant && (
+            <span className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+              <Flame className="w-2.5 h-2.5" />
+              FR
+            </span>
+          )}
+        </div>
+
+        {/* SKU Badge */}
+        <div className="absolute bottom-2 right-2">
+          <span className="px-1.5 py-0.5 bg-white/95 backdrop-blur-sm text-slate-600 text-[8px] font-mono tracking-wider">
+            {product.sku}
+          </span>
+        </div>
+
+        {/* Hover Overlay - Desktop */}
+        <motion.div
+          initial={false}
+          animate={{ opacity: isHovered ? 1 : 0 }}
+          className="absolute inset-0 bg-slate-900/40 items-center justify-center hidden md:flex"
+        >
+          <span className="px-4 py-2 bg-white text-slate-900 text-sm font-sans font-medium tracking-wider uppercase">
+            {labels.viewDetails[locale]}
+          </span>
+        </motion.div>
+      </div>
+
+      {/* Product Info */}
+      <div className="p-3 md:p-4">
+        {/* Category */}
+        <span className="text-[9px] md:text-[10px] font-sans font-bold tracking-[0.15em] uppercase text-slate-500">
+          {categoryLabels[product.category][locale]}
+        </span>
+        
+        {/* Name */}
+        <h3 className="mt-0.5 font-serif text-sm md:text-base font-medium text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-1">
+          {product.name}
+        </h3>
+
+        {/* Quick Specs */}
+        <div className="mt-2 grid grid-cols-3 gap-1">
+          <div className="bg-slate-50 py-1.5 px-1 text-center border border-slate-100">
+            <span className="block text-[7px] md:text-[8px] font-sans font-bold text-slate-400 uppercase tracking-wider">{labels.width[locale]}</span>
+            <span className="block text-[10px] md:text-xs font-sans font-light text-slate-900">{product.width}cm</span>
+          </div>
+          <div className="bg-slate-50 py-1.5 px-1 text-center border border-slate-100">
+            <span className="block text-[7px] md:text-[8px] font-sans font-bold text-slate-400 uppercase tracking-wider">{labels.gsm[locale]}</span>
+            <span className="block text-[10px] md:text-xs font-sans font-light text-slate-900">{product.weight}</span>
+          </div>
+          <div className="bg-slate-50 py-1.5 px-1 text-center border border-slate-100">
+            <span className="block text-[7px] md:text-[8px] font-sans font-bold text-slate-400 uppercase tracking-wider">{labels.price[locale]}</span>
+            <span className="block text-[10px] md:text-xs font-sans font-light text-slate-900">{priceLabels[product.priceCategory]}</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ============================================
+// SIDEBAR CATEGORIES
+// ============================================
+function SidebarCategories({
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  locale
+}: {
+  categories: { category: FabricCategory | 'all'; count: number }[]
+  selectedCategory: FabricCategory | 'all'
+  onSelectCategory: (cat: FabricCategory | 'all') => void
+  locale: Locale
+}) {
+  const t = getTranslation(locale)
+
+  return (
+    <div className="space-y-1">
+      {categories.map(({ category, count }) => {
+        const isActive = selectedCategory === category
+        const label = category === 'all' 
+          ? t.showroom.allCategories
+          : categoryLabels[category]?.[locale] || category
+
+        return (
+          <button
+            key={category}
+            onClick={() => onSelectCategory(category)}
+            className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-all ${
+              isActive 
+                ? 'bg-slate-900 text-white' 
+                : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <span className="font-sans text-sm">{label}</span>
+            <span className={`text-xs font-mono ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
+              {count}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ============================================
+// MOBILE FILTER SHEET
+// ============================================
+function MobileFilterSheet({
+  isOpen,
+  onClose,
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  sortOption,
+  onSortChange,
+  locale
+}: {
+  isOpen: boolean
+  onClose: () => void
+  categories: { category: FabricCategory | 'all'; count: number }[]
+  selectedCategory: FabricCategory | 'all'
+  onSelectCategory: (cat: FabricCategory | 'all') => void
+  sortOption: SortOption
+  onSortChange: (sort: SortOption) => void
+  locale: Locale
+}) {
+  const t = getTranslation(locale)
+  
+  const sortOptions: { value: SortOption; label: string }[] = [
+    { value: 'name-asc', label: t.showroom.sortOptions.nameAsc },
+    { value: 'name-desc', label: t.showroom.sortOptions.nameDesc },
+    { value: 'weight-asc', label: t.showroom.sortOptions.weightAsc },
+    { value: 'weight-desc', label: t.showroom.sortOptions.weightDesc },
+    { value: 'price-asc', label: t.showroom.sortOptions.priceAsc },
+    { value: 'price-desc', label: t.showroom.sortOptions.priceDesc },
+  ]
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="left" className="w-[300px] p-0 bg-white">
+        <SheetHeader className="p-4 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <SheetTitle className="font-serif text-lg">{t.showroom.filters}</SheetTitle>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <SheetDescription className="text-xs text-slate-500">
+            {labels.selectCatSort[locale]}
+          </SheetDescription>
+        </SheetHeader>
+        
+        <ScrollArea className="h-[calc(100vh-120px)]">
+          <div className="p-4">
+            {/* Categories */}
+            <div className="mb-6">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {t.showroom.category}
+              </h4>
+              <SidebarCategories
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onSelectCategory={(cat) => {
+                  onSelectCategory(cat)
+                  onClose()
+                }}
+                locale={locale}
+              />
+            </div>
+
+            {/* Sort */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {labels.sort[locale]}
+              </h4>
+              <div className="space-y-1">
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      onSortChange(option.value)
+                      onClose()
+                    }}
+                    className={`w-full text-left px-3 py-2.5 text-sm transition-colors ${
+                      sortOption === option.value
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ============================================
+// LANGUAGE SELECTOR
+// ============================================
+function LanguageSelector({
+  locale,
+  onLocaleChange
+}: {
+  locale: Locale
+  onLocaleChange: (locale: Locale) => void
+}) {
   const [isOpen, setIsOpen] = useState(false)
   
-  const localeNames: Record<Locale, string> = {
-    en: 'English',
-    tr: 'Turkce',
-    ru: 'Russkiy',
-  }
-
-  const localeShort: Record<Locale, string> = {
-    en: 'EN',
-    tr: 'TR',
-    ru: 'RU',
-  }
+  const languages = [
+    { code: 'tr' as Locale, label: 'Türkçe', flag: 'TR' },
+    { code: 'en' as Locale, label: 'English', flag: 'EN' },
+    { code: 'ru' as Locale, label: 'Русский', flag: 'RU' },
+  ]
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-2 text-xs md:text-sm font-sans font-light text-slate-700 hover:text-slate-900 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
       >
-        <Globe className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        <span className="hidden sm:inline">{localeNames[locale]}</span>
-        <span className="sm:hidden">{localeShort[locale]}</span>
-        <ChevronDown className={cn("w-3 h-3 md:w-4 md:h-4 transition-transform", isOpen && "rotate-180")} />
+        <Globe className="w-4 h-4" />
+        <span className="text-sm font-sans font-medium uppercase">{locale}</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       
       <AnimatePresence>
         {isOpen && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setIsOpen(false)} 
+            />
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 top-full mt-1 w-36 md:w-40 bg-white border border-slate-200 shadow-lg z-50"
+              className="absolute right-0 top-full mt-1 bg-white border border-slate-200 shadow-lg z-50 min-w-[140px]"
             >
-              {locales.map((l) => (
+              {languages.map((lang) => (
                 <button
-                  key={l}
+                  key={lang.code}
                   onClick={() => {
-                    setLocale(l)
+                    onLocaleChange(lang.code)
                     setIsOpen(false)
                   }}
-                  className={cn(
-                    "w-full text-left px-4 py-2.5 text-sm font-sans font-light transition-colors",
-                    locale === l ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"
-                  )}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                    locale === lang.code 
+                      ? 'bg-slate-900 text-white' 
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
                 >
-                  {localeNames[l]}
+                  <span className="font-mono text-xs">{lang.flag}</span>
+                  <span>{lang.label}</span>
                 </button>
               ))}
             </motion.div>
@@ -729,160 +758,76 @@ function LanguageSelector({ locale, setLocale, isMobile = false }: { locale: Loc
   )
 }
 
-// Mobile Navigation Menu
-function MobileNavMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] bg-white md:hidden"
-        >
-          <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-              <span className="font-serif text-xl font-medium text-slate-900">Menu</span>
-              <button onClick={onClose} className="p-2 -mr-2">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Nav Links */}
-            <nav className="flex-1 flex flex-col items-center justify-center gap-6">
-              <Link 
-                href="/" 
-                onClick={onClose}
-                className="font-serif text-2xl font-medium text-slate-900"
-              >
-                Home
-              </Link>
-              <span className="font-serif text-2xl font-medium text-slate-900 border-b-2 border-slate-900 pb-1">
-                Showroom
-              </span>
-              <Link 
-                href="/#contact" 
-                onClick={onClose}
-                className="font-serif text-2xl font-medium text-slate-900"
-              >
-                Contact
-              </Link>
-            </nav>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
-
-// Scroll to Top Button
-function ScrollToTopButton() {
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    const toggleVisibility = () => {
-      if (window.scrollY > 500) {
-        setIsVisible(true)
-      } else {
-        setIsVisible(false)
-      }
-    }
-
-    window.addEventListener('scroll', toggleVisibility)
-    return () => window.removeEventListener('scroll', toggleVisibility)
-  }, [])
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-slate-900 text-white flex items-center justify-center shadow-lg hover:bg-slate-800 transition-colors"
-          aria-label="Scroll to top"
-        >
-          <ChevronUp className="w-5 h-5" />
-        </motion.button>
-      )}
-    </AnimatePresence>
-  )
-}
-
+// ============================================
+// MAIN SHOWROOM PAGE
+// ============================================
 export default function ShowroomPage() {
-  // Locale state - Turkish as default
+  // Dil state - Turkce varsayilan
   const [locale, setLocale] = useState<Locale>('tr')
   const t = getTranslation(locale)
-  
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<FabricCategory | null>(null)
-  const [selectedUsage, setSelectedUsage] = useState<UsageArea | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>('name-asc')
-  
+  const [selectedCategory, setSelectedCategory] = useState<FabricCategory | 'all'>('all')
+  const [sortOption, setSortOption] = useState<SortOption>('name-asc')
+
   // UI states
   const [selectedProduct, setSelectedProduct] = useState<FabricProduct | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false)
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [showScrollTop, setShowScrollTop] = useState(false)
   
-  // Save scroll position when opening drawer
+  // Scroll pozisyonu kaydetme
   const scrollPositionRef = useRef(0)
 
-  // Product counts per category
-  const productCounts = useMemo(() => {
-    const counts: Record<FabricCategory | 'all', number> = {
-      all: FABRIC_DATA.length,
-      velvet: 0, satin: 0, linen: 0, jacquard: 0, silk: 0,
-      chenille: 0, organza: 0, taffeta: 0, brocade: 0, damask: 0,
-      suede: 0, blackout: 0, sheer: 0
+  // Scroll top butonunu goster/gizle
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400)
     }
-    FABRIC_DATA.forEach(p => {
-      counts[p.category]++
-    })
-    return counts
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Sort labels
-  const sortLabels: Record<SortOption, string> = {
-    'name-asc': 'Name (A-Z)',
-    'name-desc': 'Name (Z-A)',
-    'weight-asc': 'Weight (Low-High)',
-    'weight-desc': 'Weight (High-Low)',
-    'price-asc': 'Price (Low-High)',
-    'price-desc': 'Price (High-Low)',
-  }
-
-  // Memoized filtered and sorted products - O(n) performance
-  const filteredProducts = useMemo(() => {
-    let results = FABRIC_DATA.filter((product) => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase()
-        const matchesName = product.name.toLowerCase().includes(query)
-        const matchesSku = product.sku.toLowerCase().includes(query)
-        const matchesPattern = product.pattern?.toLowerCase().includes(query)
-        if (!matchesName && !matchesSku && !matchesPattern) return false
-      }
-
-      // Category filter
-      if (selectedCategory && product.category !== selectedCategory) return false
-
-      // Usage filter
-      if (selectedUsage && !product.usageAreas.includes(selectedUsage)) return false
-
-      return true
+  // Kategorileri hesapla
+  const categoriesWithCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: FABRIC_DATA.length }
+    FABRIC_DATA.forEach(product => {
+      counts[product.category] = (counts[product.category] || 0) + 1
     })
+    
+    const categories = getCategories()
+    return [
+      { category: 'all' as const, count: counts.all },
+      ...categories.map(cat => ({
+        category: cat,
+        count: counts[cat] || 0
+      }))
+    ]
+  }, [])
 
-    // Sort results
-    results.sort((a, b) => {
-      switch (sortBy) {
+  // Filtreleme ve siralama
+  const filteredProducts = useMemo(() => {
+    let result = [...FABRIC_DATA]
+    
+    // Kategori filtresi
+    if (selectedCategory !== 'all') {
+      result = result.filter(p => p.category === selectedCategory)
+    }
+    
+    // Arama filtresi
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(query) ||
+        p.sku.toLowerCase().includes(query) ||
+        (p.pattern && p.pattern.toLowerCase().includes(query))
+      )
+    }
+    
+    // Siralama
+    result.sort((a, b) => {
+      switch (sortOption) {
         case 'name-asc':
           return a.name.localeCompare(b.name)
         case 'name-desc':
@@ -899,215 +844,225 @@ export default function ShowroomPage() {
           return 0
       }
     })
+    
+    return result
+  }, [selectedCategory, searchQuery, sortOption])
 
-    return results
-  }, [searchQuery, selectedCategory, selectedUsage, sortBy])
-
-  // Handle product click - save scroll position
+  // Urun tiklamasi - scroll pozisyonu kaydet
   const handleProductClick = useCallback((product: FabricProduct) => {
     scrollPositionRef.current = window.scrollY
     setSelectedProduct(product)
     setIsDrawerOpen(true)
   }, [])
   
-  // Handle drawer close - restore scroll position
+  // Drawer kapatma - scroll pozisyonunu geri yukle
   const handleDrawerClose = useCallback(() => {
     setIsDrawerOpen(false)
-    // Restore scroll position after a small delay to ensure DOM is ready
     requestAnimationFrame(() => {
       window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
     })
   }, [])
 
-  // Active filter count
-  const activeFilterCount = (selectedCategory ? 1 : 0) + (searchQuery ? 1 : 0)
+  // Yukari kaydir
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
-    <div className="min-h-screen bg-white overflow-y-auto">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-6 lg:px-12">
-          <div className="flex items-center justify-between h-16 md:h-20">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200">
+        <div className="flex items-center justify-between px-4 lg:px-6 h-16">
+          {/* Left: Menu + Logo */}
+          <div className="flex items-center gap-3">
+            {/* Mobile filter button */}
+            <button
+              onClick={() => setIsMobileFilterOpen(true)}
+              className="lg:hidden w-10 h-10 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <Filter className="w-5 h-5" />
+            </button>
+            
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-              <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
-              <span className="font-serif text-lg md:text-2xl font-medium tracking-wide text-slate-900">
-                Karaca Bey
+            <Link href="/" className="flex items-center gap-2">
+              <span className="font-serif text-lg md:text-xl font-medium tracking-tight text-slate-900">
+                KARACA BEY
               </span>
             </Link>
+          </div>
+
+          {/* Center: Title (desktop) */}
+          <div className="hidden md:block">
+            <h1 className="font-serif text-sm font-medium text-slate-600 tracking-wider uppercase">
+              {t.showroom.title}
+            </h1>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1">
+            <LanguageSelector locale={locale} onLocaleChange={setLocale} />
             
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <Link href="/" className="text-sm font-sans font-light text-slate-600 hover:text-slate-900 transition-colors">
-                Home
-              </Link>
-              <span className="text-sm font-sans font-medium text-slate-900 border-b border-slate-900 pb-0.5">
-                Showroom
-              </span>
-              <Link href="/#contact" className="text-sm font-sans font-light text-slate-600 hover:text-slate-900 transition-colors">
-                Contact
-              </Link>
-            </nav>
+            <Link
+              href="/"
+              className="hidden sm:flex items-center gap-2 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              <span className="text-sm font-sans">{t.showroom.home}</span>
+            </Link>
             
-            {/* Right Side - Language & Mobile Menu */}
-            <div className="flex items-center gap-2">
-              <LanguageSelector locale={locale} setLocale={setLocale} />
-              
-              {/* Mobile Menu Button */}
-              <button 
-                onClick={() => setIsMobileNavOpen(true)}
-                className="md:hidden p-2 -mr-2"
+            <a
+              href="tel:+905551234567"
+              className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            >
+              <Phone className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm font-sans">{t.showroom.contact}</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="px-4 lg:px-6 pb-4">
+          <div className="relative max-w-2xl mx-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t.showroom.search}
+              className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600"
               >
-                <Menu className="w-5 h-5 text-slate-700" />
+                <X className="w-4 h-4" />
               </button>
-            </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Mobile Navigation Menu */}
-      <MobileNavMenu isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+      {/* Main Content */}
+      <div className="flex">
+        {/* Sidebar - Desktop */}
+        <aside className="hidden lg:block w-64 flex-shrink-0 border-r border-slate-200 bg-white">
+          <div className="sticky top-[120px] p-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
+              {t.showroom.category}
+            </h2>
+            <SidebarCategories
+              categories={categoriesWithCounts}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+              locale={locale}
+            />
 
-      {/* Page Title */}
-      <section className="bg-slate-50 border-b border-slate-200">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-6 lg:px-12 py-8 md:py-12">
-          <h1 className="font-serif text-2xl md:text-4xl lg:text-5xl font-medium italic tracking-tight text-slate-900">
-            Digital Fabric Showroom
-          </h1>
-          <p className="mt-2 md:mt-3 font-sans text-sm md:text-lg font-light text-slate-500">
-            {FABRIC_DATA.length} premium fabrics with technical specifications
-          </p>
-        </div>
-      </section>
-
-      {/* Search & Sort Bar */}
-      <div className="sticky top-16 md:top-20 z-40 bg-white border-b border-slate-200">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-6 lg:px-12">
-          <div className="flex items-center gap-2 md:gap-4 py-3 md:py-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search fabrics..."
-                className="w-full pl-9 md:pl-12 pr-9 md:pr-10 py-2.5 md:py-3 border border-slate-200 text-sm font-sans font-light placeholder:text-slate-400 focus:border-slate-400 focus:outline-none transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-                >
-                  <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-                </button>
-              )}
-            </div>
-
-            {/* Mobile Filter Button */}
-            <button
-              onClick={() => setIsMobileFilterOpen(true)}
-              className="lg:hidden flex items-center gap-2 px-3 md:px-4 py-2.5 md:py-3 border border-slate-200 text-sm font-sans font-light hover:border-slate-400 transition-colors"
-            >
-              <Filter className="w-4 h-4" />
-              <span className="hidden sm:inline">Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="w-5 h-5 bg-slate-900 text-white text-xs flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-
-            {/* Desktop Sort Dropdown */}
-            <div className="hidden lg:block">
+            {/* Sort Options - Desktop */}
+            <div className="mt-8">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {labels.sort[locale]}
+              </h3>
               <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="px-4 py-3 border border-slate-200 text-sm font-sans font-light text-slate-700 focus:border-slate-400 focus:outline-none appearance-none cursor-pointer bg-white pr-10"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 text-sm text-slate-700 font-sans focus:outline-none focus:ring-2 focus:ring-slate-900"
               >
-                {Object.entries(sortLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                <option value="name-asc">{t.showroom.sortOptions.nameAsc}</option>
+                <option value="name-desc">{t.showroom.sortOptions.nameDesc}</option>
+                <option value="weight-asc">{t.showroom.sortOptions.weightAsc}</option>
+                <option value="weight-desc">{t.showroom.sortOptions.weightDesc}</option>
+                <option value="price-asc">{t.showroom.sortOptions.priceAsc}</option>
+                <option value="price-desc">{t.showroom.sortOptions.priceDesc}</option>
               </select>
             </div>
-
-            {/* Results Count */}
-            <div className="hidden sm:block text-xs md:text-sm font-sans font-light text-slate-500 whitespace-nowrap">
-              {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
-            </div>
           </div>
-        </div>
-      </div>
+        </aside>
 
-      {/* Main Content */}
-      <div className="max-w-[1800px] mx-auto px-4 md:px-6 lg:px-12 py-6 md:py-8">
-        <div className="flex gap-8 lg:gap-12">
-          {/* Sidebar - Desktop Only */}
-          <CategorySidebar
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            locale={locale}
-            productCounts={productCounts}
-          />
-          
-          {/* Product Grid */}
-          <main className="flex-1">
-            {/* Mobile Results & Active Filters */}
-            <div className="lg:hidden mb-4 flex items-center justify-between">
-              <span className="text-sm font-sans font-light text-slate-500">
-                {filteredProducts.length} products
-              </span>
-              {selectedCategory && (
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-700 text-xs"
-                >
-                  {categoryLabels[selectedCategory][locale]}
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+        {/* Product Grid */}
+        <main className="flex-1 min-w-0">
+          {/* Results count */}
+          <div className="px-4 lg:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <p className="text-sm text-slate-600 font-sans">
+              <span className="font-semibold text-slate-900">{filteredProducts.length}</span> {t.showroom.products}
+            </p>
             
-            {/* Grid */}
+            {/* Mobile sort button */}
+            <button
+              onClick={() => setIsMobileFilterOpen(true)}
+              className="lg:hidden flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+            >
+              <span>{labels.filterSort[locale]}</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Grid */}
+          <div className="p-4 lg:p-6">
             {filteredProducts.length > 0 ? (
               <motion.div 
                 layout
-                className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 lg:gap-6"
+                className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4"
               >
                 <AnimatePresence mode="popLayout">
                   {filteredProducts.map((product, index) => (
                     <ProductCard
                       key={product.id}
                       product={product}
-                      locale={locale}
                       onClick={() => handleProductClick(product)}
+                      locale={locale}
                       index={index}
                     />
                   ))}
                 </AnimatePresence>
               </motion.div>
             ) : (
-              <div className="text-center py-16 md:py-20">
-                <p className="font-sans text-base md:text-lg font-light text-slate-500">
-                  No products found matching your criteria.
-                </p>
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                  <Search className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="font-serif text-lg text-slate-900 mb-2">{t.showroom.noProducts}</h3>
                 <button
                   onClick={() => {
                     setSearchQuery('')
-                    setSelectedCategory(null)
-                    setSelectedUsage(null)
+                    setSelectedCategory('all')
                   }}
-                  className="mt-4 px-6 py-2.5 border border-slate-300 text-sm font-sans font-light text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="text-sm text-slate-600 hover:text-slate-900 underline"
                 >
-                  Reset Filters
+                  {t.showroom.resetFilters}
                 </button>
               </div>
             )}
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
+
+      {/* Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 w-12 h-12 bg-slate-900 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center z-50 transition-colors"
+          >
+            <ChevronUp className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Filter Sheet */}
+      <MobileFilterSheet
+        isOpen={isMobileFilterOpen}
+        onClose={() => setIsMobileFilterOpen(false)}
+        categories={categoriesWithCounts}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        locale={locale}
+      />
 
       {/* Product Detail Drawer */}
       <ProductDetailDrawer
@@ -1116,21 +1071,6 @@ export default function ShowroomPage() {
         onClose={handleDrawerClose}
         locale={locale}
       />
-
-      {/* Mobile Filter Sheet */}
-      <MobileFilterSheet
-        isOpen={isMobileFilterOpen}
-        onClose={() => setIsMobileFilterOpen(false)}
-        selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
-        locale={locale}
-        productCounts={productCounts}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-      />
-
-      {/* Scroll to Top Button */}
-      <ScrollToTopButton />
     </div>
   )
 }
