@@ -109,62 +109,62 @@ export function ConciergeSection() {
             </p>
 
             {/* Contact Buttons */}
-            <div className="space-y-4 mb-10">
+            <div className="space-y-3 md:space-y-4 mb-8 md:mb-10">
               <motion.button
                 onClick={handleWhatsApp}
-                className="w-full flex items-center gap-4 px-6 py-5 bg-[#25D366] text-white group"
+                className="w-full flex items-center gap-3 md:gap-4 px-4 md:px-6 py-4 md:py-5 bg-[#25D366] text-white group active:scale-[0.98]"
                 whileHover={{ scale: 1.02, x: 8 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                  <MessageCircle className="w-6 h-6" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors flex-shrink-0">
+                  <MessageCircle className="w-5 h-5 md:w-6 md:h-6" />
                 </div>
-                <div className="text-left">
-                  <span className="block font-sans text-lg">{t.concierge.whatsapp}</span>
-                  <span className="block text-white/80 text-sm">
+                <div className="text-left min-w-0">
+                  <span className="block font-sans text-base md:text-lg">{t.concierge.whatsapp}</span>
+                  <span className="block text-white/80 text-xs md:text-sm truncate">
                     {locale === 'ru' ? 'Мгновенный ответ' : locale === 'tr' ? 'Anında cevap' : 'Instant response'}
                   </span>
                 </div>
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
                   <Send className="w-5 h-5" />
                 </div>
               </motion.button>
 
               <motion.button
                 onClick={handleTelegram}
-                className="w-full flex items-center gap-4 px-6 py-5 bg-[#0088cc] text-white group"
+                className="w-full flex items-center gap-3 md:gap-4 px-4 md:px-6 py-4 md:py-5 bg-[#0088cc] text-white group active:scale-[0.98]"
                 whileHover={{ scale: 1.02, x: 8 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                  <Send className="w-6 h-6" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors flex-shrink-0">
+                  <Send className="w-5 h-5 md:w-6 md:h-6" />
                 </div>
-                <div className="text-left">
-                  <span className="block font-sans text-lg">{t.concierge.telegram}</span>
-                  <span className="block text-white/80 text-sm">@karacabey</span>
+                <div className="text-left min-w-0">
+                  <span className="block font-sans text-base md:text-lg">{t.concierge.telegram}</span>
+                  <span className="block text-white/80 text-xs md:text-sm">@karacabey</span>
                 </div>
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
                   <Send className="w-5 h-5" />
                 </div>
               </motion.button>
             </div>
 
             {/* Additional Contact */}
-            <div className="grid grid-cols-2 gap-6 pt-8 border-t border-gold/20">
-              <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-gold" />
-                <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pt-6 md:pt-8 border-t border-gold/20">
+              <a href="tel:+905551234567" className="flex items-center gap-3 p-3 bg-cream/50 hover:bg-cream transition-colors">
+                <Phone className="w-5 h-5 text-gold flex-shrink-0" />
+                <div className="min-w-0">
                   <span className="block text-navy text-sm">+90 555 123 4567</span>
                   <span className="block text-navy/60 text-xs">Mon-Sat 9:00-21:00</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-gold" />
-                <div>
-                  <span className="block text-navy text-sm">contact@karacabey.com</span>
+              </a>
+              <a href="mailto:contact@karacabey.com" className="flex items-center gap-3 p-3 bg-cream/50 hover:bg-cream transition-colors">
+                <Mail className="w-5 h-5 text-gold flex-shrink-0" />
+                <div className="min-w-0">
+                  <span className="block text-navy text-sm truncate">contact@karacabey.com</span>
                   <span className="block text-navy/60 text-xs">24h response</span>
                 </div>
-              </div>
+              </a>
             </div>
           </motion.div>
         </div>

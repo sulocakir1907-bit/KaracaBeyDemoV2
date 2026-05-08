@@ -1,22 +1,51 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search, SlidersHorizontal, X, ChevronDown, Flame, Sparkles, TrendingUp, Globe } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Search, 
+  X, 
+  Globe, 
+  ChevronDown,
+  Ruler,
+  Weight,
+  Droplets,
+  Shirt,
+  Flame,
+  Sparkles,
+  TrendingUp,
+  MessageCircle,
+  ArrowLeft,
+  ZoomIn,
+  Filter,
+  ChevronUp,
+  Home,
+  Phone
+} from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+
 import { 
   FABRIC_DATA, 
-  type FabricCategory, 
-  type FabricProduct,
-  type UsageArea,
+  type FabricProduct, 
+  type FabricCategory,
   categoryLabels,
+  usageAreaLabels,
   formatComposition,
-  getCategories
+  getCategories,
+  washingInstructionLabels
 } from '@/lib/fabric-data'
-import { cn } from '@/lib/utils'
-import { type Locale, locales, getTranslation } from '@/lib/i18n'
+import { type Locale, getTranslation } from '@/lib/i18n'
 
-// Price category display
+// Fiyat kategorisi gosterimi
 const priceLabels: Record<number, string> = {
   1: '$',
   2: '$$',
@@ -25,428 +54,780 @@ const priceLabels: Record<number, string> = {
   5: '$$$$$',
 }
 
-// Sort options
+// Siralama secenekleri
 type SortOption = 'name-asc' | 'name-desc' | 'weight-asc' | 'weight-desc' | 'price-asc' | 'price-desc'
 
-// Usage area type mapping for i18n
-const usageAreaKeyMap: Record<UsageArea, keyof typeof getTranslation extends (l: Locale) => infer T ? T extends { showroom: { usageAreas: infer U } } ? U : never : never> = {
-  'curtains': 'curtains',
-  'upholstery': 'upholstery',
-  'bedding': 'bedding',
-  'tablecloth': 'tablecloth',
-  'cushions': 'cushions',
-  'wall-panels': 'wallPanels',
-  'event-decor': 'eventDecor',
-  'headboards': 'headboards',
-  'throws': 'throws',
+// Coklu dil etiketleri
+const labels = {
+  width: { tr: 'EN', en: 'WIDTH', ru: 'ШИРИНА' },
+  gsm: { tr: 'GSM', en: 'GSM', ru: 'ПЛОТНОСТЬ' },
+  price: { tr: 'FİYAT', en: 'PRICE', ru: 'ЦЕНА' },
+  viewDetails: { tr: 'Detayları Gör', en: 'View Details', ru: 'Подробнее' },
+  hoverToMagnify: { tr: 'Büyütmek için üzerine gelin', en: 'Hover to magnify', ru: 'Наведите для увеличения' },
+  technicalSpecs: { tr: 'Teknik Özellikler', en: 'Technical Specifications', ru: 'Технические Характеристики' },
+  fabricProfile: { tr: 'Kumaş Profili', en: 'Fabric Profile', ru: 'Профиль Ткани' },
+  availableColors: { tr: 'Mevcut Renkler', en: 'Available Colors', ru: 'Доступные Цвета' },
+  careInstructions: { tr: 'Bakım Talimatları', en: 'Care Instructions', ru: 'Инструкции по Уходу' },
+  requestQuote: { tr: 'WhatsApp ile Teklif Al', en: 'Request Quote via WhatsApp', ru: 'Запросить Цену через WhatsApp' },
+  minOrder: { tr: 'Minimum sipariş', en: 'Minimum order', ru: 'Минимальный заказ' },
+  meters: { tr: 'metre', en: 'meters', ru: 'метров' },
+  composition: { tr: 'KOMPOZİSYON', en: 'COMPOSITION', ru: 'СОСТАВ' },
+  recommendedUse: { tr: 'ÖNERİLEN KULLANIM', en: 'RECOMMENDED USE', ru: 'РЕКОМЕНДУЕМОЕ ПРИМЕНЕНИЕ' },
+  martindale: { tr: 'MARTINDALE', en: 'MARTINDALE', ru: 'МАРТИНДЕЙЛ' },
+  lightFast: { tr: 'IŞIK HASLIĞI', en: 'LIGHT FAST', ru: 'СВЕТОСТОЙКОСТЬ' },
+  fireRated: { tr: 'YANMAZ', en: 'FIRE RATED', ru: 'ОГНЕСТОЙКИЙ' },
+  frCertified: { tr: 'FR Sertifikalı', en: 'FR Certified', ru: 'FR Сертификат' },
+  close: { tr: 'Kapat', en: 'Close', ru: 'Закрыть' },
+  examine: { tr: 'İncele', en: 'View', ru: 'Смотреть' },
+  sort: { tr: 'Sıralama', en: 'Sort By', ru: 'Сортировка' },
+  filterSort: { tr: 'Filtre & Sıralama', en: 'Filter & Sort', ru: 'Фильтр и Сортировка' },
+  selectCatSort: { tr: 'Kategori ve sıralama seçin', en: 'Select category and sorting', ru: 'Выберите категорию и сортировку' },
+  fabricDescription: {
+    tr: (name: string, category: string, usage: string, weight: number, width: number) => 
+      `${name}, ${usage} için ideal premium bir ${category} kumaştır. ${weight} g/m² ağırlığı ve ${width}cm eni ile bu kumaş mükemmel dayanıklılık ve her iç mekanı yücelten lüks bir his sunar.`,
+    en: (name: string, category: string, usage: string, weight: number, width: number) => 
+      `${name} is a premium ${category} fabric ideal for ${usage}. With a weight of ${weight} g/m² and ${width}cm width, this fabric offers excellent durability and a luxurious feel that elevates any interior space.`,
+    ru: (name: string, category: string, usage: string, weight: number, width: number) => 
+      `${name} — это премиальная ткань ${category}, идеальная для ${usage}. С плотностью ${weight} г/м² и шириной ${width}см эта ткань обеспечивает отличную прочность и роскошное ощущение.`
+  },
+  whatsappMessage: {
+    tr: (name: string, sku: string) => `Merhaba, ${name} (${sku}) hakkında bilgi almak istiyorum.`,
+    en: (name: string, sku: string) => `Hello, I am interested in ${name} (${sku}).`,
+    ru: (name: string, sku: string) => `Здравствуйте, интересует ${name} (${sku}).`
+  }
 }
 
-function ProductCard({ product, locale }: { product: FabricProduct; locale: Locale }) {
+// ============================================
+// TEXTURE MAGNIFIER COMPONENT
+// ============================================
+function TextureMagnifier({ 
+  src, 
+  alt,
+  locale
+}: { 
+  src: string
+  alt: string
+  locale: Locale
+}) {
+  const [isHovering, setIsHovering] = useState(false)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    setMousePosition({ x, y })
+  }, [])
+
+  return (
+    <div 
+      ref={containerRef}
+      className="relative aspect-square overflow-hidden bg-slate-100 cursor-crosshair group"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      onMouseMove={handleMouseMove}
+    >
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className="object-cover transition-transform duration-300"
+        sizes="(max-width: 768px) 100vw, 50vw"
+        priority
+      />
+      
+      {/* Magnifier lens - sadece desktop */}
+      <AnimatePresence>
+        {isHovering && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl pointer-events-none overflow-hidden hidden md:block"
+            style={{
+              left: `calc(${mousePosition.x}% - 5rem)`,
+              top: `calc(${mousePosition.y}% - 5rem)`,
+            }}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(${src})`,
+                backgroundSize: '300%',
+                backgroundPosition: `${mousePosition.x}% ${mousePosition.y}%`,
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ZoomIn className="w-6 h-6 text-white/50" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Ipucu */}
+      <div className="absolute bottom-3 right-3 hidden md:flex items-center gap-1.5 px-2 py-1 bg-slate-900/80 text-white text-xs">
+        <ZoomIn className="w-3 h-3" />
+        <span className="font-sans font-light">{labels.hoverToMagnify[locale]}</span>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// PRODUCT DETAIL DRAWER
+// ============================================
+function ProductDetailDrawer({
+  product,
+  isOpen,
+  onClose,
+  locale
+}: {
+  product: FabricProduct | null
+  isOpen: boolean
+  onClose: () => void
+  locale: Locale
+}) {
   const t = getTranslation(locale)
   
+  // Tarayici geri tusu destegi
+  useEffect(() => {
+    if (isOpen && product) {
+      window.history.pushState({ productId: product.id }, '', `?product=${product.sku}`)
+      
+      const handlePopState = () => {
+        onClose()
+      }
+      
+      window.addEventListener('popstate', handlePopState)
+      return () => {
+        window.removeEventListener('popstate', handlePopState)
+      }
+    }
+  }, [isOpen, product, onClose])
+  
+  // Kapatma ve URL temizleme
+  const handleClose = useCallback(() => {
+    window.history.replaceState({}, '', window.location.pathname)
+    onClose()
+  }, [onClose])
+  
+  if (!product) return null
+  
+  const whatsappMessage = encodeURIComponent(labels.whatsappMessage[locale](product.name, product.sku))
+  
+  const usageText = product.usageAreas.slice(0, 2).map(area => usageAreaLabels[area][locale].toLowerCase()).join(locale === 'tr' ? ' ve ' : locale === 'ru' ? ' и ' : ' and ')
+  
   return (
-    <Link 
-      href={`/showroom/${product.id}?lang=${locale}`}
-      className="group block bg-white border border-slate-200 hover:border-slate-300 transition-all duration-300 hover:shadow-lg"
+    <Sheet open={isOpen} onOpenChange={handleClose}>
+      <SheetContent side="right" className="w-full sm:max-w-xl p-0 bg-white overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="pb-8">
+            {/* Header with Close Button */}
+            <SheetHeader className="sticky top-0 z-10 bg-white border-b border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <SheetTitle className="font-serif text-lg md:text-xl font-medium text-slate-900">
+                    {product.name}
+                  </SheetTitle>
+                  <SheetDescription className="text-[10px] md:text-xs font-sans font-bold tracking-[0.15em] uppercase text-slate-500 mt-1">
+                    {categoryLabels[product.category][locale]} | {product.sku}
+                  </SheetDescription>
+                </div>
+                {/* Kapatma Butonu */}
+                <button
+                  onClick={handleClose}
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors rounded"
+                  aria-label={labels.close[locale]}
+                >
+                  <X className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
+            </SheetHeader>
+
+            {/* Product Image with Magnifier */}
+            <div className="p-4">
+              <TextureMagnifier 
+                src={product.images.primary}
+                alt={product.name}
+                locale={locale}
+              />
+            </div>
+
+            {/* Badges */}
+            <div className="px-4 pb-4 flex gap-2 flex-wrap">
+              {product.new && (
+                <span className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  {t.showroom.new}
+                </span>
+              )}
+              {product.bestseller && (
+                <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  {t.showroom.bestseller}
+                </span>
+              )}
+              {product.fireRetardant && (
+                <span className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Flame className="w-3 h-3" />
+                  {labels.fireRated[locale]}
+                </span>
+              )}
+            </div>
+
+            {/* Technical Specifications */}
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-4 uppercase tracking-wider">
+                {labels.technicalSpecs[locale]}
+              </h3>
+              
+              <div className="space-y-0 border border-slate-200">
+                {/* Width */}
+                <div className="flex items-center border-b border-slate-200">
+                  <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
+                    <Ruler className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                  </div>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.width[locale]}</span>
+                    <span className="block text-sm font-sans font-light text-slate-900">{product.width} cm</span>
+                  </div>
+                </div>
+
+                {/* Weight */}
+                <div className="flex items-center border-b border-slate-200">
+                  <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
+                    <Weight className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                  </div>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.gsm[locale]}</span>
+                    <span className="block text-sm font-sans font-light text-slate-900">{product.weight} g/m²</span>
+                  </div>
+                </div>
+
+                {/* Composition */}
+                <div className="flex items-center border-b border-slate-200">
+                  <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
+                    <Droplets className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                  </div>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.composition[locale]}</span>
+                    <span className="block text-sm font-sans font-light text-slate-900">{formatComposition(product.composition, locale)}</span>
+                  </div>
+                </div>
+
+                {/* Usage */}
+                <div className="flex items-center">
+                  <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-slate-50 border-r border-slate-200">
+                    <Shirt className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                  </div>
+                  <div className="flex-1 px-3 md:px-4 py-2.5">
+                    <span className="block text-[9px] md:text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.recommendedUse[locale]}</span>
+                    <span className="block text-sm font-sans font-light text-slate-900">
+                      {product.usageAreas.map(area => usageAreaLabels[area][locale]).join(', ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Specs */}
+              {(product.martindale || product.lightFastness || product.fireRetardant) && (
+                <div className="mt-4 grid grid-cols-3 gap-1.5">
+                  {product.martindale && (
+                    <div className="bg-slate-50 p-2 md:p-3 text-center border border-slate-200">
+                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.martindale[locale]}</span>
+                      <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{product.martindale.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {product.lightFastness && (
+                    <div className="bg-slate-50 p-2 md:p-3 text-center border border-slate-200">
+                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">{labels.lightFast[locale]}</span>
+                      <span className="block text-xs md:text-sm font-sans font-light text-slate-900">{product.lightFastness}/8</span>
+                    </div>
+                  )}
+                  {product.fireRetardant && (
+                    <div className="bg-red-50 p-2 md:p-3 text-center border border-red-200">
+                      <span className="block text-[8px] md:text-[9px] font-sans font-bold uppercase tracking-wider text-red-400">{labels.fireRated[locale]}</span>
+                      <span className="block text-xs md:text-sm font-sans font-light text-red-700">{labels.frCertified[locale]}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Fabric Profile */}
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-3 uppercase tracking-wider">
+                {labels.fabricProfile[locale]}
+              </h3>
+              <p className="text-sm font-sans font-light text-slate-600 leading-relaxed">
+                {labels.fabricDescription[locale](
+                  product.name,
+                  categoryLabels[product.category][locale].toLowerCase(),
+                  usageText,
+                  product.weight,
+                  product.width
+                )}
+              </p>
+            </div>
+
+            {/* Colors */}
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-3 uppercase tracking-wider">
+                {labels.availableColors[locale]}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {product.colors.map((color, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-sans border border-slate-200">
+                    {color}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Care Instructions */}
+            <div className="px-4 pb-6">
+              <h3 className="font-serif text-base font-semibold text-slate-900 mb-3 uppercase tracking-wider">
+                {labels.careInstructions[locale]}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {product.washingInstructions.map((instruction, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-slate-50 text-slate-600 text-xs font-sans border border-slate-200">
+                    {washingInstructionLabels[instruction][locale]}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Request Quote Button */}
+            <div className="px-4 pb-4">
+              <a
+                href={`https://wa.me/905551234567?text=${whatsappMessage}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20BD5A] active:bg-[#1DA851] text-white py-4 px-6 font-sans font-medium transition-colors"
+              >
+                <MessageCircle className="w-5 h-5" />
+                {labels.requestQuote[locale]}
+              </a>
+              <p className="mt-3 text-center text-xs font-sans font-light text-slate-500">
+                {labels.minOrder[locale]}: {product.minOrder} {labels.meters[locale]}
+              </p>
+            </div>
+
+            {/* Back button for mobile */}
+            <div className="px-4 pb-4 md:hidden">
+              <button
+                onClick={handleClose}
+                className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 py-3 px-6 font-sans text-sm transition-colors hover:bg-slate-50 active:bg-slate-100"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                {t.showroom.backToShowroom}
+              </button>
+            </div>
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ============================================
+// PRODUCT CARD COMPONENT
+// ============================================
+function ProductCard({
+  product,
+  onClick,
+  locale,
+  index
+}: {
+  product: FabricProduct
+  onClick: () => void
+  locale: Locale
+  index: number
+}) {
+  const t = getTranslation(locale)
+  const [isHovered, setIsHovered] = useState(false)
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.2) }}
+      className="group cursor-pointer bg-white border border-slate-200 hover:border-slate-400 hover:shadow-lg transition-all duration-300 active:scale-[0.98]"
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Image Container */}
+      {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
         <Image
           src={product.images.primary}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className={`object-cover transition-transform duration-700 ${isHovered ? 'scale-110' : 'scale-100'}`}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          loading={index < 8 ? "eager" : "lazy"}
         />
         
         {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
           {product.new && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-900 text-white text-[10px] font-medium tracking-wider uppercase">
-              <Sparkles className="w-3 h-3" />
+            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5" />
               {t.showroom.new}
             </span>
           )}
           {product.bestseller && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500 text-white text-[10px] font-medium tracking-wider uppercase">
-              <TrendingUp className="w-3 h-3" />
+            <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+              <TrendingUp className="w-2.5 h-2.5" />
               {t.showroom.bestseller}
             </span>
           )}
           {product.fireRetardant && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-[10px] font-medium tracking-wider uppercase">
-              <Flame className="w-3 h-3" />
+            <span className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+              <Flame className="w-2.5 h-2.5" />
               FR
             </span>
           )}
         </div>
 
         {/* SKU Badge */}
-        <div className="absolute bottom-3 right-3">
-          <span className="px-2 py-1 bg-white/90 backdrop-blur-sm text-slate-600 text-[10px] font-mono tracking-wider">
+        <div className="absolute bottom-2 right-2">
+          <span className="px-1.5 py-0.5 bg-white/95 backdrop-blur-sm text-slate-600 text-[8px] font-mono tracking-wider">
             {product.sku}
           </span>
         </div>
+
+        {/* Hover Overlay - Desktop */}
+        <motion.div
+          initial={false}
+          animate={{ opacity: isHovered ? 1 : 0 }}
+          className="absolute inset-0 bg-slate-900/40 items-center justify-center hidden md:flex"
+        >
+          <span className="px-4 py-2 bg-white text-slate-900 text-sm font-sans font-medium tracking-wider uppercase">
+            {labels.viewDetails[locale]}
+          </span>
+        </motion.div>
       </div>
 
-      {/* Content */}
-      <div className="p-4">
-        {/* Category Tag */}
-        <span className="text-[10px] font-medium tracking-[0.15em] uppercase text-slate-500">
+      {/* Product Info */}
+      <div className="p-3 md:p-4">
+        {/* Category */}
+        <span className="text-[9px] md:text-[10px] font-sans font-bold tracking-[0.15em] uppercase text-slate-500">
           {categoryLabels[product.category][locale]}
         </span>
         
-        {/* Product Name */}
-        <h3 className="mt-1 font-sans text-base font-medium text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-1">
+        {/* Name */}
+        <h3 className="mt-0.5 font-serif text-sm md:text-base font-medium text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-1">
           {product.name}
         </h3>
 
-        {/* Technical Specs Grid */}
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div className="bg-slate-50 py-2 px-1">
-            <span className="block text-[10px] text-slate-500 uppercase tracking-wider">{t.showroom.width}</span>
-            <span className="block text-sm font-medium text-slate-900">{product.width}cm</span>
+        {/* Quick Specs */}
+        <div className="mt-2 grid grid-cols-3 gap-1">
+          <div className="bg-slate-50 py-1.5 px-1 text-center border border-slate-100">
+            <span className="block text-[7px] md:text-[8px] font-sans font-bold text-slate-400 uppercase tracking-wider">{labels.width[locale]}</span>
+            <span className="block text-[10px] md:text-xs font-sans font-light text-slate-900">{product.width}cm</span>
           </div>
-          <div className="bg-slate-50 py-2 px-1">
-            <span className="block text-[10px] text-slate-500 uppercase tracking-wider">{t.showroom.gsm}</span>
-            <span className="block text-sm font-medium text-slate-900">{product.weight}</span>
+          <div className="bg-slate-50 py-1.5 px-1 text-center border border-slate-100">
+            <span className="block text-[7px] md:text-[8px] font-sans font-bold text-slate-400 uppercase tracking-wider">{labels.gsm[locale]}</span>
+            <span className="block text-[10px] md:text-xs font-sans font-light text-slate-900">{product.weight}</span>
           </div>
-          <div className="bg-slate-50 py-2 px-1">
-            <span className="block text-[10px] text-slate-500 uppercase tracking-wider">{t.showroom.price}</span>
-            <span className="block text-sm font-medium text-slate-900">{priceLabels[product.priceCategory]}</span>
+          <div className="bg-slate-50 py-1.5 px-1 text-center border border-slate-100">
+            <span className="block text-[7px] md:text-[8px] font-sans font-bold text-slate-400 uppercase tracking-wider">{labels.price[locale]}</span>
+            <span className="block text-[10px] md:text-xs font-sans font-light text-slate-900">{priceLabels[product.priceCategory]}</span>
           </div>
-        </div>
-
-        {/* Composition */}
-        <p className="mt-3 text-xs text-slate-500 line-clamp-1">
-          {formatComposition(product.composition)}
-        </p>
-
-        {/* Colors */}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t.showroom.colors}:</span>
-          <span className="text-xs text-slate-600 line-clamp-1">
-            {product.colors.slice(0, 3).join(', ')}
-            {product.colors.length > 3 && ` +${product.colors.length - 3}`}
-          </span>
         </div>
       </div>
-    </Link>
+    </motion.div>
   )
 }
 
-function FilterSidebar({
+// ============================================
+// SIDEBAR CATEGORIES
+// ============================================
+function SidebarCategories({
+  categories,
   selectedCategory,
-  setSelectedCategory,
-  selectedUsage,
-  setSelectedUsage,
-  weightRange,
-  setWeightRange,
-  selectedPrice,
-  setSelectedPrice,
-  fireRetardantOnly,
-  setFireRetardantOnly,
-  onReset,
-  locale,
+  onSelectCategory,
+  locale
 }: {
-  selectedCategory: FabricCategory | null
-  setSelectedCategory: (cat: FabricCategory | null) => void
-  selectedUsage: UsageArea | null
-  setSelectedUsage: (usage: UsageArea | null) => void
-  weightRange: [number, number]
-  setWeightRange: (range: [number, number]) => void
-  selectedPrice: number | null
-  setSelectedPrice: (price: number | null) => void
-  fireRetardantOnly: boolean
-  setFireRetardantOnly: (val: boolean) => void
-  onReset: () => void
+  categories: { category: FabricCategory | 'all'; count: number }[]
+  selectedCategory: FabricCategory | 'all'
+  onSelectCategory: (cat: FabricCategory | 'all') => void
   locale: Locale
 }) {
   const t = getTranslation(locale)
-  const categories = getCategories()
-  const usageAreas: UsageArea[] = ['curtains', 'upholstery', 'bedding', 'tablecloth', 'cushions', 'wall-panels', 'event-decor', 'headboards', 'throws']
 
   return (
-    <aside className="w-full lg:w-72 flex-shrink-0">
-      <div className="sticky top-24 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium tracking-[0.1em] uppercase text-slate-900">
-            {t.showroom.filters}
-          </h2>
+    <div className="space-y-1">
+      {categories.map(({ category, count }) => {
+        const isActive = selectedCategory === category
+        const label = category === 'all' 
+          ? t.showroom.allCategories
+          : categoryLabels[category]?.[locale] || category
+
+        return (
           <button
-            onClick={onReset}
-            className="text-xs text-slate-500 hover:text-slate-900 transition-colors"
+            key={category}
+            onClick={() => onSelectCategory(category)}
+            className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-all ${
+              isActive 
+                ? 'bg-slate-900 text-white' 
+                : 'text-slate-700 hover:bg-slate-100'
+            }`}
           >
-            {t.showroom.resetAll}
+            <span className="font-sans text-sm">{label}</span>
+            <span className={`text-xs font-mono ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
+              {count}
+            </span>
           </button>
-        </div>
-
-        {/* Category Filter */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium tracking-[0.1em] uppercase text-slate-700">
-            {t.showroom.category}
-          </h3>
-          <div className="space-y-1">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={cn(
-                'w-full text-left px-3 py-2 text-sm transition-colors',
-                selectedCategory === null
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              )}
-            >
-              {t.showroom.allCategories}
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={cn(
-                  'w-full text-left px-3 py-2 text-sm transition-colors',
-                  selectedCategory === cat
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                )}
-              >
-                {categoryLabels[cat][locale]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Usage Area Filter */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium tracking-[0.1em] uppercase text-slate-700">
-            {t.showroom.usageArea}
-          </h3>
-          <div className="space-y-1">
-            <button
-              onClick={() => setSelectedUsage(null)}
-              className={cn(
-                'w-full text-left px-3 py-2 text-sm transition-colors',
-                selectedUsage === null
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              )}
-            >
-              {t.showroom.allUses}
-            </button>
-            {usageAreas.map((usage) => (
-              <button
-                key={usage}
-                onClick={() => setSelectedUsage(usage)}
-                className={cn(
-                  'w-full text-left px-3 py-2 text-sm transition-colors',
-                  selectedUsage === usage
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                )}
-              >
-                {t.showroom.usageAreas[usageAreaKeyMap[usage]]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Weight Range */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium tracking-[0.1em] uppercase text-slate-700">
-            {t.showroom.weight}
-          </h3>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="Min"
-              value={weightRange[0] || ''}
-              onChange={(e) => setWeightRange([Number(e.target.value), weightRange[1]])}
-              className="w-full px-3 py-2 text-sm border border-slate-200 focus:border-slate-400 focus:outline-none"
-            />
-            <span className="text-slate-400">-</span>
-            <input
-              type="number"
-              placeholder="Max"
-              value={weightRange[1] || ''}
-              onChange={(e) => setWeightRange([weightRange[0], Number(e.target.value)])}
-              className="w-full px-3 py-2 text-sm border border-slate-200 focus:border-slate-400 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Price Category */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium tracking-[0.1em] uppercase text-slate-700">
-            {t.showroom.priceRange}
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedPrice(null)}
-              className={cn(
-                'px-3 py-1.5 text-sm transition-colors',
-                selectedPrice === null
-                  ? 'bg-slate-900 text-white'
-                  : 'border border-slate-200 text-slate-600 hover:border-slate-400'
-              )}
-            >
-              {t.showroom.all}
-            </button>
-            {[1, 2, 3, 4, 5].map((price) => (
-              <button
-                key={price}
-                onClick={() => setSelectedPrice(price)}
-                className={cn(
-                  'px-3 py-1.5 text-sm transition-colors',
-                  selectedPrice === price
-                    ? 'bg-slate-900 text-white'
-                    : 'border border-slate-200 text-slate-600 hover:border-slate-400'
-                )}
-              >
-                {priceLabels[price]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Fire Retardant Toggle */}
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={fireRetardantOnly}
-              onChange={(e) => setFireRetardantOnly(e.target.checked)}
-              className="w-4 h-4 border-slate-300 text-slate-900 focus:ring-slate-500"
-            />
-            <span className="text-sm text-slate-700">{t.showroom.fireRetardantOnly}</span>
-          </label>
-        </div>
-      </div>
-    </aside>
+        )
+      })}
+    </div>
   )
 }
 
-// Language Selector Component
-function LanguageSelector({ locale, setLocale }: { locale: Locale; setLocale: (l: Locale) => void }) {
+// ============================================
+// MOBILE FILTER SHEET
+// ============================================
+function MobileFilterSheet({
+  isOpen,
+  onClose,
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  sortOption,
+  onSortChange,
+  locale
+}: {
+  isOpen: boolean
+  onClose: () => void
+  categories: { category: FabricCategory | 'all'; count: number }[]
+  selectedCategory: FabricCategory | 'all'
+  onSelectCategory: (cat: FabricCategory | 'all') => void
+  sortOption: SortOption
+  onSortChange: (sort: SortOption) => void
+  locale: Locale
+}) {
+  const t = getTranslation(locale)
+  
+  const sortOptions: { value: SortOption; label: string }[] = [
+    { value: 'name-asc', label: t.showroom.sortOptions.nameAsc },
+    { value: 'name-desc', label: t.showroom.sortOptions.nameDesc },
+    { value: 'weight-asc', label: t.showroom.sortOptions.weightAsc },
+    { value: 'weight-desc', label: t.showroom.sortOptions.weightDesc },
+    { value: 'price-asc', label: t.showroom.sortOptions.priceAsc },
+    { value: 'price-desc', label: t.showroom.sortOptions.priceDesc },
+  ]
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="left" className="w-[300px] p-0 bg-white">
+        <SheetHeader className="p-4 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <SheetTitle className="font-serif text-lg">{t.showroom.filters}</SheetTitle>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <SheetDescription className="text-xs text-slate-500">
+            {labels.selectCatSort[locale]}
+          </SheetDescription>
+        </SheetHeader>
+        
+        <ScrollArea className="h-[calc(100vh-120px)]">
+          <div className="p-4">
+            {/* Categories */}
+            <div className="mb-6">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {t.showroom.category}
+              </h4>
+              <SidebarCategories
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onSelectCategory={(cat) => {
+                  onSelectCategory(cat)
+                  onClose()
+                }}
+                locale={locale}
+              />
+            </div>
+
+            {/* Sort */}
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {labels.sort[locale]}
+              </h4>
+              <div className="space-y-1">
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      onSortChange(option.value)
+                      onClose()
+                    }}
+                    className={`w-full text-left px-3 py-2.5 text-sm transition-colors ${
+                      sortOption === option.value
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ============================================
+// LANGUAGE SELECTOR
+// ============================================
+function LanguageSelector({
+  locale,
+  onLocaleChange
+}: {
+  locale: Locale
+  onLocaleChange: (locale: Locale) => void
+}) {
   const [isOpen, setIsOpen] = useState(false)
   
-  const localeNames: Record<Locale, string> = {
-    en: 'English',
-    tr: 'Türkçe',
-    ru: 'Русский',
-  }
-  
-  const localeFlags: Record<Locale, string> = {
-    en: '🇬🇧',
-    tr: '🇹🇷',
-    ru: '🇷🇺',
-  }
+  const languages = [
+    { code: 'tr' as Locale, label: 'Türkçe', flag: 'TR' },
+    { code: 'en' as Locale, label: 'English', flag: 'EN' },
+    { code: 'ru' as Locale, label: 'Русский', flag: 'RU' },
+  ]
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:text-slate-900 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
       >
         <Globe className="w-4 h-4" />
-        <span>{localeFlags[locale]} {localeNames[locale]}</span>
-        <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
+        <span className="text-sm font-sans font-medium uppercase">{locale}</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 shadow-lg z-50">
-            {locales.map((l) => (
-              <button
-                key={l}
-                onClick={() => {
-                  setLocale(l)
-                  setIsOpen(false)
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-2 text-sm transition-colors",
-                  locale === l ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                {localeFlags[l]} {localeNames[l]}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setIsOpen(false)} 
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 top-full mt-1 bg-white border border-slate-200 shadow-lg z-50 min-w-[140px]"
+            >
+              {languages.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => {
+                    onLocaleChange(lang.code)
+                    setIsOpen(false)
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                    locale === lang.code 
+                      ? 'bg-slate-900 text-white' 
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="font-mono text-xs">{lang.flag}</span>
+                  <span>{lang.label}</span>
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
+// ============================================
+// MAIN SHOWROOM PAGE
+// ============================================
 export default function ShowroomPage() {
-  // Locale state
-  const [locale, setLocale] = useState<Locale>('en')
+  // Dil state - Turkce varsayilan
+  const [locale, setLocale] = useState<Locale>('tr')
   const t = getTranslation(locale)
-  
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<FabricCategory | null>(null)
-  const [selectedUsage, setSelectedUsage] = useState<UsageArea | null>(null)
-  const [weightRange, setWeightRange] = useState<[number, number]>([0, 0])
-  const [selectedPrice, setSelectedPrice] = useState<number | null>(null)
-  const [fireRetardantOnly, setFireRetardantOnly] = useState(false)
-  const [sortBy, setSortBy] = useState<SortOption>('name-asc')
-  const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<FabricCategory | 'all'>('all')
+  const [sortOption, setSortOption] = useState<SortOption>('name-asc')
 
-  // Sort labels with i18n
-  const sortLabels: Record<SortOption, string> = {
-    'name-asc': t.showroom.sortOptions.nameAsc,
-    'name-desc': t.showroom.sortOptions.nameDesc,
-    'weight-asc': t.showroom.sortOptions.weightAsc,
-    'weight-desc': t.showroom.sortOptions.weightDesc,
-    'price-asc': t.showroom.sortOptions.priceAsc,
-    'price-desc': t.showroom.sortOptions.priceDesc,
-  }
+  // UI states
+  const [selectedProduct, setSelectedProduct] = useState<FabricProduct | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  
+  // Scroll pozisyonu kaydetme
+  const scrollPositionRef = useRef(0)
 
-  // Reset all filters
-  const resetFilters = useCallback(() => {
-    setSearchQuery('')
-    setSelectedCategory(null)
-    setSelectedUsage(null)
-    setWeightRange([0, 0])
-    setSelectedPrice(null)
-    setFireRetardantOnly(false)
+  // Scroll top butonunu goster/gizle
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Memoized filtered and sorted products - O(n) performance
-  const filteredProducts = useMemo(() => {
-    let results = FABRIC_DATA.filter((product) => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase()
-        const matchesName = product.name.toLowerCase().includes(query)
-        const matchesSku = product.sku.toLowerCase().includes(query)
-        const matchesPattern = product.pattern?.toLowerCase().includes(query)
-        if (!matchesName && !matchesSku && !matchesPattern) return false
-      }
-
-      // Category filter
-      if (selectedCategory && product.category !== selectedCategory) return false
-
-      // Usage filter
-      if (selectedUsage && !product.usageAreas.includes(selectedUsage)) return false
-
-      // Weight range filter
-      if (weightRange[0] > 0 && product.weight < weightRange[0]) return false
-      if (weightRange[1] > 0 && product.weight > weightRange[1]) return false
-
-      // Price filter
-      if (selectedPrice && product.priceCategory !== selectedPrice) return false
-
-      // Fire retardant filter
-      if (fireRetardantOnly && !product.fireRetardant) return false
-
-      return true
+  // Kategorileri hesapla
+  const categoriesWithCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: FABRIC_DATA.length }
+    FABRIC_DATA.forEach(product => {
+      counts[product.category] = (counts[product.category] || 0) + 1
     })
+    
+    const categories = getCategories()
+    return [
+      { category: 'all' as const, count: counts.all },
+      ...categories.map(cat => ({
+        category: cat,
+        count: counts[cat] || 0
+      }))
+    ]
+  }, [])
 
-    // Sort results
-    results.sort((a, b) => {
-      switch (sortBy) {
+  // Filtreleme ve siralama
+  const filteredProducts = useMemo(() => {
+    let result = [...FABRIC_DATA]
+    
+    // Kategori filtresi
+    if (selectedCategory !== 'all') {
+      result = result.filter(p => p.category === selectedCategory)
+    }
+    
+    // Arama filtresi
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(query) ||
+        p.sku.toLowerCase().includes(query) ||
+        (p.pattern && p.pattern.toLowerCase().includes(query))
+      )
+    }
+    
+    // Siralama
+    result.sort((a, b) => {
+      switch (sortOption) {
         case 'name-asc':
           return a.name.localeCompare(b.name)
         case 'name-desc':
@@ -463,211 +844,233 @@ export default function ShowroomPage() {
           return 0
       }
     })
+    
+    return result
+  }, [selectedCategory, searchQuery, sortOption])
 
-    return results
-  }, [searchQuery, selectedCategory, selectedUsage, weightRange, selectedPrice, fireRetardantOnly, sortBy])
+  // Urun tiklamasi - scroll pozisyonu kaydet
+  const handleProductClick = useCallback((product: FabricProduct) => {
+    scrollPositionRef.current = window.scrollY
+    setSelectedProduct(product)
+    setIsDrawerOpen(true)
+  }, [])
+  
+  // Drawer kapatma - scroll pozisyonunu geri yukle
+  const handleDrawerClose = useCallback(() => {
+    setIsDrawerOpen(false)
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
+    })
+  }, [])
 
-  // Active filter count
-  const activeFilterCount = useMemo(() => {
-    let count = 0
-    if (selectedCategory) count++
-    if (selectedUsage) count++
-    if (weightRange[0] > 0 || weightRange[1] > 0) count++
-    if (selectedPrice) count++
-    if (fireRetardantOnly) count++
-    return count
-  }, [selectedCategory, selectedUsage, weightRange, selectedPrice, fireRetardantOnly])
+  // Yukari kaydir
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between h-16 border-b border-slate-100">
-            <Link href="/" className="text-xl font-semibold tracking-wide text-slate-900">
-              Karacabey Tekstil
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200">
+        <div className="flex items-center justify-between px-4 lg:px-6 h-16">
+          {/* Left: Menu + Logo */}
+          <div className="flex items-center gap-3">
+            {/* Mobile filter button */}
+            <button
+              onClick={() => setIsMobileFilterOpen(true)}
+              className="lg:hidden w-10 h-10 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <Filter className="w-5 h-5" />
+            </button>
+            
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2">
+              <span className="font-serif text-lg md:text-xl font-medium tracking-tight text-slate-900">
+                KARACA BEY
+              </span>
             </Link>
-            <nav className="hidden md:flex items-center gap-8">
-              <Link href="/" className="text-sm text-slate-600 hover:text-slate-900 transition-colors">
-                {t.showroom.home}
-              </Link>
-              <Link href="/showroom" className="text-sm font-medium text-slate-900">
-                Showroom
-              </Link>
-              <Link href="/#contact" className="text-sm text-slate-600 hover:text-slate-900 transition-colors">
-                {t.showroom.contact}
-              </Link>
-              <LanguageSelector locale={locale} setLocale={setLocale} />
-            </nav>
-            {/* Mobile Language Selector */}
-            <div className="md:hidden">
-              <LanguageSelector locale={locale} setLocale={setLocale} />
-            </div>
           </div>
 
-          {/* Title Section */}
-          <div className="py-8 text-center">
-            <h1 className="text-3xl md:text-4xl font-light tracking-tight text-slate-900">
+          {/* Center: Title (desktop) */}
+          <div className="hidden md:block">
+            <h1 className="font-serif text-sm font-medium text-slate-600 tracking-wider uppercase">
               {t.showroom.title}
             </h1>
-            <p className="mt-2 text-slate-500">
-              {FABRIC_DATA.length} {t.showroom.subtitle}
-            </p>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1">
+            <LanguageSelector locale={locale} onLocaleChange={setLocale} />
+            
+            <Link
+              href="/"
+              className="hidden sm:flex items-center gap-2 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              <span className="text-sm font-sans">{t.showroom.home}</span>
+            </Link>
+            
+            <a
+              href="tel:+905551234567"
+              className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            >
+              <Phone className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm font-sans">{t.showroom.contact}</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="px-4 lg:px-6 pb-4">
+          <div className="relative max-w-2xl mx-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t.showroom.search}
+              className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Search & Sort Bar */}
-      <div className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 py-4">
-            {/* Mobile Filter Toggle */}
-            <button
-              onClick={() => setShowMobileFilters(true)}
-              className="lg:hidden flex items-center gap-2 px-4 py-2 border border-slate-200 text-sm text-slate-700 hover:border-slate-400 transition-colors"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {t.showroom.filters}
-              {activeFilterCount > 0 && (
-                <span className="ml-1 w-5 h-5 flex items-center justify-center bg-slate-900 text-white text-xs rounded-full">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder={t.showroom.search}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 text-sm focus:border-slate-400 focus:outline-none transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Sort */}
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="appearance-none pl-4 pr-10 py-2.5 border border-slate-200 text-sm text-slate-700 focus:border-slate-400 focus:outline-none cursor-pointer bg-white"
-              >
-                {Object.entries(sortLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
-
-            {/* Results Count */}
-            <span className="hidden sm:block text-sm text-slate-500 whitespace-nowrap">
-              {filteredProducts.length} {t.showroom.products}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-8">
-          {/* Desktop Sidebar */}
-          <div className="hidden lg:block">
-            <FilterSidebar
+      <div className="flex">
+        {/* Sidebar - Desktop */}
+        <aside className="hidden lg:block w-64 flex-shrink-0 border-r border-slate-200 bg-white">
+          <div className="sticky top-[120px] p-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
+              {t.showroom.category}
+            </h2>
+            <SidebarCategories
+              categories={categoriesWithCounts}
               selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-              selectedUsage={selectedUsage}
-              setSelectedUsage={setSelectedUsage}
-              weightRange={weightRange}
-              setWeightRange={setWeightRange}
-              selectedPrice={selectedPrice}
-              setSelectedPrice={setSelectedPrice}
-              fireRetardantOnly={fireRetardantOnly}
-              setFireRetardantOnly={setFireRetardantOnly}
-              onReset={resetFilters}
+              onSelectCategory={setSelectedCategory}
               locale={locale}
             />
+
+            {/* Sort Options - Desktop */}
+            <div className="mt-8">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {labels.sort[locale]}
+              </h3>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 text-sm text-slate-700 font-sans focus:outline-none focus:ring-2 focus:ring-slate-900"
+              >
+                <option value="name-asc">{t.showroom.sortOptions.nameAsc}</option>
+                <option value="name-desc">{t.showroom.sortOptions.nameDesc}</option>
+                <option value="weight-asc">{t.showroom.sortOptions.weightAsc}</option>
+                <option value="weight-desc">{t.showroom.sortOptions.weightDesc}</option>
+                <option value="price-asc">{t.showroom.sortOptions.priceAsc}</option>
+                <option value="price-desc">{t.showroom.sortOptions.priceDesc}</option>
+              </select>
+            </div>
+          </div>
+        </aside>
+
+        {/* Product Grid */}
+        <main className="flex-1 min-w-0">
+          {/* Results count */}
+          <div className="px-4 lg:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <p className="text-sm text-slate-600 font-sans">
+              <span className="font-semibold text-slate-900">{filteredProducts.length}</span> {t.showroom.products}
+            </p>
+            
+            {/* Mobile sort button */}
+            <button
+              onClick={() => setIsMobileFilterOpen(true)}
+              className="lg:hidden flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+            >
+              <span>{labels.filterSort[locale]}</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Product Grid */}
-          <div className="flex-1">
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-slate-500">{t.showroom.noProducts}</p>
+          {/* Grid */}
+          <div className="p-4 lg:p-6">
+            {filteredProducts.length > 0 ? (
+              <motion.div 
+                layout
+                className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4"
+              >
+                <AnimatePresence mode="popLayout">
+                  {filteredProducts.map((product, index) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onClick={() => handleProductClick(product)}
+                      locale={locale}
+                      index={index}
+                    />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                  <Search className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="font-serif text-lg text-slate-900 mb-2">{t.showroom.noProducts}</h3>
                 <button
-                  onClick={resetFilters}
-                  className="mt-4 px-6 py-2 bg-slate-900 text-white text-sm hover:bg-slate-800 transition-colors"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setSelectedCategory('all')
+                  }}
+                  className="text-sm text-slate-600 hover:text-slate-900 underline"
                 >
                   {t.showroom.resetFilters}
                 </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} locale={locale} />
-                ))}
-              </div>
             )}
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* Mobile Filter Drawer */}
-      {showMobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div 
-            className="absolute inset-0 bg-black/50" 
-            onClick={() => setShowMobileFilters(false)}
-          />
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium text-slate-900">{t.showroom.filters}</h2>
-              <button
-                onClick={() => setShowMobileFilters(false)}
-                className="p-2 text-slate-500 hover:text-slate-900"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4">
-              <FilterSidebar
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-                selectedUsage={selectedUsage}
-                setSelectedUsage={setSelectedUsage}
-                weightRange={weightRange}
-                setWeightRange={setWeightRange}
-                selectedPrice={selectedPrice}
-                setSelectedPrice={setSelectedPrice}
-                fireRetardantOnly={fireRetardantOnly}
-                setFireRetardantOnly={setFireRetardantOnly}
-                onReset={resetFilters}
-                locale={locale}
-              />
-            </div>
-            <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4">
-              <button
-                onClick={() => setShowMobileFilters(false)}
-                className="w-full py-3 bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-colors"
-              >
-                {filteredProducts.length} {t.showroom.products}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 w-12 h-12 bg-slate-900 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center z-50 transition-colors"
+          >
+            <ChevronUp className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Filter Sheet */}
+      <MobileFilterSheet
+        isOpen={isMobileFilterOpen}
+        onClose={() => setIsMobileFilterOpen(false)}
+        categories={categoriesWithCounts}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        locale={locale}
+      />
+
+      {/* Product Detail Drawer */}
+      <ProductDetailDrawer
+        product={selectedProduct}
+        isOpen={isDrawerOpen}
+        onClose={handleDrawerClose}
+        locale={locale}
+      />
     </div>
   )
 }
