@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ArrowRight } from 'lucide-react'
 import { useLocale } from '@/lib/locale-context'
 import { FloatingFabric } from './floating-fabric'
 
@@ -32,7 +33,7 @@ export function HeroSlider() {
   }, [nextSlide])
 
   return (
-    <section className="relative h-screen w-full overflow-hidden bg-navy">
+    <section className="relative h-screen w-full overflow-hidden bg-slate-900">
       {/* Floating Fabric Elements */}
       <FloatingFabric />
 
@@ -50,9 +51,9 @@ export function HeroSlider() {
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${slides[currentSlide].image})` }}
           />
-          {/* Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-b from-navy/60 via-navy/30 to-navy/70" />
-          <div className="absolute inset-0 bg-gradient-to-r from-navy/50 via-transparent to-navy/50" />
+          {/* Gradient Overlays - Industrial Luxury */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/40 to-slate-900/80" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/60 via-transparent to-slate-900/60" />
         </motion.div>
       </AnimatePresence>
 
@@ -65,12 +66,12 @@ export function HeroSlider() {
           transition={{ delay: 0.3, duration: 0.8 }}
           className="mb-8"
         >
-          <span className="inline-block px-6 py-2 border border-gold/40 text-gold text-xs tracking-[0.3em] uppercase">
+          <span className="inline-block px-6 py-2 border border-slate-400/40 text-slate-300 text-xs font-sans font-light tracking-[0.3em] uppercase">
             Karaca Bey Signature
           </span>
         </motion.div>
 
-        {/* Main Text */}
+        {/* Main Text - Playfair Display Focus */}
         <AnimatePresence mode="wait">
           <motion.div
             key={`content-${currentSlide}`}
@@ -80,33 +81,32 @@ export function HeroSlider() {
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             className="max-w-4xl"
           >
-            <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-light text-ivory mb-6 leading-tight text-balance">
+            {/* H1 - font-serif, italic, font-medium, tracking-tight */}
+            <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-medium italic tracking-tight text-white mb-6 leading-tight text-balance">
               {slides[currentSlide].title}
             </h1>
-            <p className="font-sans text-lg md:text-xl text-ivory/80 font-light tracking-wide max-w-2xl mx-auto text-pretty">
+            {/* Subtitle - font-sans, font-light */}
+            <p className="font-sans text-lg md:text-xl text-slate-300 font-light tracking-wide max-w-2xl mx-auto text-pretty">
               {slides[currentSlide].subtitle}
             </p>
           </motion.div>
         </AnimatePresence>
 
-        {/* CTA Button */}
-        <motion.a
-          href="#collections"
+        {/* CTA Button - Links to #showroom */}
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.8 }}
-          className="mt-12 group relative inline-flex items-center gap-3 px-8 py-4 bg-gold text-navy font-sans text-sm tracking-[0.2em] uppercase overflow-hidden"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          className="mt-12"
         >
-          <span className="relative z-10">{t.hero.cta}</span>
-          <motion.div
-            className="absolute inset-0 bg-gold-light"
-            initial={{ x: '-100%' }}
-            whileHover={{ x: 0 }}
-            transition={{ duration: 0.3 }}
-          />
-        </motion.a>
+          <Link
+            href="/showroom"
+            className="group inline-flex items-center gap-3 px-8 py-4 bg-white text-slate-900 font-sans text-sm font-medium tracking-[0.15em] uppercase hover:bg-slate-100 transition-colors"
+          >
+            <span>Explore Collection</span>
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </motion.div>
 
         {/* Slide Indicators */}
         <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex gap-4">
@@ -115,13 +115,13 @@ export function HeroSlider() {
               key={index}
               onClick={() => setCurrentSlide(index)}
               className={`relative w-12 h-[2px] transition-colors ${
-                index === currentSlide ? 'bg-gold' : 'bg-ivory/30'
+                index === currentSlide ? 'bg-white' : 'bg-white/30'
               }`}
               whileHover={{ scale: 1.1 }}
             >
               {index === currentSlide && (
                 <motion.div
-                  className="absolute inset-0 bg-gold"
+                  className="absolute inset-0 bg-white"
                   layoutId="activeSlide"
                   transition={{ type: 'spring', damping: 30, stiffness: 300 }}
                 />
@@ -140,9 +140,9 @@ export function HeroSlider() {
           <motion.div
             animate={{ y: [0, 8, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="flex flex-col items-center gap-2 text-ivory/60"
+            className="flex flex-col items-center gap-2 text-slate-400"
           >
-            <span className="text-xs tracking-[0.2em] uppercase">Scroll</span>
+            <span className="text-xs font-sans font-light tracking-[0.2em] uppercase">Scroll</span>
             <ChevronDown className="w-5 h-5" />
           </motion.div>
         </motion.div>
@@ -156,9 +156,9 @@ export function HeroSlider() {
         className="absolute left-8 top-1/2 -translate-y-1/2 hidden lg:block"
       >
         <div className="flex items-center gap-4 -rotate-90 origin-left">
-          <div className="w-16 h-[1px] bg-gold/50" />
-          <span className="text-ivory/50 text-xs tracking-[0.3em] uppercase whitespace-nowrap">
-            Est. 2024 • Premium Textiles
+          <div className="w-16 h-[1px] bg-slate-500" />
+          <span className="text-slate-400 text-xs font-sans font-light tracking-[0.3em] uppercase whitespace-nowrap">
+            Est. 2024 - Premium Textiles
           </span>
         </div>
       </motion.div>
@@ -170,10 +170,10 @@ export function HeroSlider() {
         transition={{ delay: 1.4, duration: 0.8 }}
         className="absolute right-8 bottom-8 hidden lg:flex items-center gap-3"
       >
-        <div className="w-16 h-16 rounded-full border border-gold/40 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-full border border-slate-500/40 flex items-center justify-center">
           <div className="text-center">
-            <span className="block text-gold text-[8px] tracking-[0.2em] uppercase">Certified</span>
-            <span className="block text-gold text-[10px] font-serif">Quality</span>
+            <span className="block text-slate-400 text-[8px] font-sans font-light tracking-[0.2em] uppercase">Certified</span>
+            <span className="block text-slate-300 text-[10px] font-serif italic">Quality</span>
           </div>
         </div>
       </motion.div>

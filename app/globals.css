@@ -96,9 +96,9 @@
 }
 
 @theme inline {
-  /* Technical Typography - Sans-serif focused */
+  /* Elite Typography - Playfair Display + Inter */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Playfair Display', 'Georgia', 'Times New Roman', serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Monaco', monospace;
   
   /* Color Tokens */
@@ -153,22 +153,27 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
+  
+  /* Zero-Scroll-Lock: Absolute freedom of movement */
+  html, body {
     overflow-y: auto !important;
     overflow-x: hidden;
+    height: auto !important;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
   }
   
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
-    overflow-y: auto !important;
-    overflow-x: hidden;
   }
   
+  /* Lenis overrides - ensure scroll freedom */
   html.lenis, html.lenis body {
-    height: auto;
-    overflow: visible !important;
+    height: auto !important;
+    overflow-y: auto !important;
   }
   
   .lenis.lenis-smooth {
@@ -179,8 +184,9 @@
     overscroll-behavior: contain;
   }
   
+  /* Remove scroll lock from lenis-stopped */
   .lenis.lenis-stopped {
-    overflow: hidden !important;
+    overflow-y: auto !important;
   }
   
   .lenis.lenis-scrolling iframe {

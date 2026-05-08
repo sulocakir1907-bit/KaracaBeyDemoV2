@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import { Inter, Playfair_Display, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 const inter = Inter({ 
   subsets: ['latin', 'cyrillic'],
   variable: '--font-sans',
+  display: 'swap',
+})
+
+const playfair = Playfair_Display({
+  subsets: ['latin', 'cyrillic'],
+  variable: '--font-serif',
   display: 'swap',
 })
 
@@ -67,8 +73,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${geistMono.variable} bg-background`}>
-      <body className="font-sans antialiased bg-background text-foreground selection:bg-slate-200 selection:text-slate-900">
+    <html lang="en" className={`${inter.variable} ${playfair.variable} ${geistMono.variable} bg-background overflow-y-auto`}>
+      <body className="font-sans antialiased bg-background text-foreground selection:bg-slate-200 selection:text-slate-900 overflow-y-auto overflow-x-hidden">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
