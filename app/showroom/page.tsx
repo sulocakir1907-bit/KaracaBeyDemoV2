@@ -260,6 +260,30 @@ function ProductDetailDrawer({
 }) {
   const t = getTranslation(locale)
   
+  // Handle browser back button
+  useEffect(() => {
+    if (isOpen && product) {
+      // Push state when drawer opens
+      window.history.pushState({ productId: product.id }, '', `?product=${product.sku}`)
+      
+      const handlePopState = () => {
+        onClose()
+      }
+      
+      window.addEventListener('popstate', handlePopState)
+      return () => {
+        window.removeEventListener('popstate', handlePopState)
+      }
+    }
+  }, [isOpen, product, onClose])
+  
+  // Handle close and clean URL
+  const handleClose = useCallback(() => {
+    // Remove the query param from URL without adding to history
+    window.history.replaceState({}, '', window.location.pathname)
+    onClose()
+  }, [onClose])
+  
   if (!product) return null
   
   const whatsappMessage = encodeURIComponent(
@@ -267,18 +291,30 @@ function ProductDetailDrawer({
   )
   
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
+    <Sheet open={isOpen} onOpenChange={handleClose}>
       <SheetContent side="right" className="w-full sm:max-w-xl p-0 bg-white overflow-hidden">
         <ScrollArea className="h-full">
           <div className="pb-8">
-            {/* Header */}
-            <SheetHeader className="sticky top-0 z-10 bg-white border-b border-slate-200 p-4 pr-12">
-              <SheetTitle className="font-serif text-lg md:text-xl font-medium text-slate-900 pr-4">
-                {product.name}
-              </SheetTitle>
-              <SheetDescription className="text-[10px] md:text-xs font-sans font-bold tracking-[0.15em] md:tracking-[0.2em] uppercase text-slate-500">
-                {categoryLabels[product.category][locale]} | {product.sku}
-              </SheetDescription>
+            {/* Header with Close Button */}
+            <SheetHeader className="sticky top-0 z-10 bg-white border-b border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <SheetTitle className="font-serif text-lg md:text-xl font-medium text-slate-900">
+                    {product.name}
+                  </SheetTitle>
+                  <SheetDescription className="text-[10px] md:text-xs font-sans font-bold tracking-[0.15em] md:tracking-[0.2em] uppercase text-slate-500 mt-1">
+                    {categoryLabels[product.category][locale]} | {product.sku}
+                  </SheetDescription>
+                </div>
+                {/* Close Button */}
+                <button
+                  onClick={handleClose}
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
             </SheetHeader>
             
             {/* Texture Magnifier */}
@@ -795,6 +831,9 @@ export default function ShowroomPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  
+  // Save scroll position when opening drawer
+  const scrollPositionRef = useRef(0)
 
   // Product counts per category
   const productCounts = useMemo(() => {
@@ -864,10 +903,20 @@ export default function ShowroomPage() {
     return results
   }, [searchQuery, selectedCategory, selectedUsage, sortBy])
 
-  // Handle product click
+  // Handle product click - save scroll position
   const handleProductClick = useCallback((product: FabricProduct) => {
+    scrollPositionRef.current = window.scrollY
     setSelectedProduct(product)
     setIsDrawerOpen(true)
+  }, [])
+  
+  // Handle drawer close - restore scroll position
+  const handleDrawerClose = useCallback(() => {
+    setIsDrawerOpen(false)
+    // Restore scroll position after a small delay to ensure DOM is ready
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
+    })
   }, [])
 
   // Active filter count
@@ -1064,7 +1113,7 @@ export default function ShowroomPage() {
       <ProductDetailDrawer
         product={selectedProduct}
         isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
+        onClose={handleDrawerClose}
         locale={locale}
       />
 
