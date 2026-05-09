@@ -110,67 +110,119 @@ function TextureMagnifier({
   locale: Locale
 }) {
   const [isHovering, setIsHovering] = useState(false)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 })
+  const [isMobileZoomed, setIsMobileZoomed] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
     setMousePosition({ x, y })
   }, [])
+
+  // Mobil touch destegi
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!containerRef.current || !isMobileZoomed) return
+    e.preventDefault()
+    const touch = e.touches[0]
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100))
+    setMousePosition({ x, y })
+  }, [isMobileZoomed])
+
+  const mobileHint = {
+    tr: 'Yakınlaştırmak için dokun',
+    en: 'Tap to zoom',
+    ru: 'Нажмите для увеличения'
+  }
+
+  const mobileDrag = {
+    tr: 'Kaydırarak incele',
+    en: 'Drag to explore',
+    ru: 'Проведите для осмотра'
+  }
 
   return (
     <div 
       ref={containerRef}
-      className="relative aspect-square overflow-hidden bg-slate-100 cursor-crosshair group"
+      className="relative aspect-square overflow-hidden bg-slate-100 cursor-crosshair group touch-none"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseMove={handleMouseMove}
+      onClick={() => setIsMobileZoomed(!isMobileZoomed)}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => {}}
     >
+      {/* Normal goruntu */}
       <Image
         src={src}
         alt={alt}
         fill
-        className="object-cover transition-transform duration-300"
+        className={`object-cover transition-transform duration-300 ${isMobileZoomed ? 'md:block hidden' : ''}`}
         sizes="(max-width: 768px) 100vw, 50vw"
         priority
       />
       
-      {/* Magnifier lens - sadece desktop */}
+      {/* Mobil zoom goruntulu - sadece mobilde ve zoom aktifken */}
+      {isMobileZoomed && (
+        <div 
+          className="absolute inset-0 md:hidden"
+          style={{
+            backgroundImage: `url(${src})`,
+            backgroundSize: '250%',
+            backgroundPosition: `${mousePosition.x}% ${mousePosition.y}%`,
+          }}
+        />
+      )}
+      
+      {/* Desktop magnifier lens */}
       <AnimatePresence>
         {isHovering && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl pointer-events-none overflow-hidden hidden md:block"
+            className="absolute w-36 h-36 lg:w-44 lg:h-44 rounded-full border-4 border-white shadow-2xl pointer-events-none overflow-hidden hidden md:block"
             style={{
-              left: `calc(${mousePosition.x}% - 5rem)`,
-              top: `calc(${mousePosition.y}% - 5rem)`,
+              left: `calc(${mousePosition.x}% - 4.5rem)`,
+              top: `calc(${mousePosition.y}% - 4.5rem)`,
             }}
           >
             <div
               className="absolute inset-0"
               style={{
                 backgroundImage: `url(${src})`,
-                backgroundSize: '300%',
+                backgroundSize: '350%',
                 backgroundPosition: `${mousePosition.x}% ${mousePosition.y}%`,
               }}
             />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <ZoomIn className="w-6 h-6 text-white/50" />
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Ipucu */}
-      <div className="absolute bottom-3 right-3 hidden md:flex items-center gap-1.5 px-2 py-1 bg-slate-900/80 text-white text-xs">
-        <ZoomIn className="w-3 h-3" />
+      {/* Desktop ipucu */}
+      <div className="absolute bottom-3 right-3 hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900/80 text-white text-xs rounded">
+        <ZoomIn className="w-3.5 h-3.5" />
         <span className="font-sans font-light">{labels.hoverToMagnify[locale]}</span>
       </div>
+
+      {/* Mobil ipucu */}
+      <div className="absolute bottom-3 right-3 md:hidden flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900/80 text-white text-xs rounded">
+        <ZoomIn className="w-3.5 h-3.5" />
+        <span className="font-sans font-light">
+          {isMobileZoomed ? mobileDrag[locale] : mobileHint[locale]}
+        </span>
+      </div>
+
+      {/* Mobil zoom indicator */}
+      {isMobileZoomed && (
+        <div className="absolute top-3 right-3 md:hidden px-2.5 py-1.5 bg-emerald-500 text-white text-xs rounded font-medium">
+          2.5x
+        </div>
+      )}
     </div>
   )
 }
