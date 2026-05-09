@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, RotateCcw, MessageCircle, Send } from 'lucide-react'
+import { X, MessageCircle, Send } from 'lucide-react'
 import { useLocale } from '@/lib/locale-context'
 
 type CategoryKey = 'velvet' | 'satin' | 'linen' | 'jacquard' | 'silk' | 'tablecloth'
@@ -49,7 +49,6 @@ const categoryImages: Record<CategoryKey, { main: string; styled: string[] }> = 
 const countries = ['Russia', 'Turkey', 'Germany', 'France', 'UAE', 'Kazakhstan', 'Other']
 
 export function ProductModal({ isOpen, onClose, categoryKey }: ProductModalProps) {
-  const [rotation, setRotation] = useState(0)
   const [selectedCountry, setSelectedCountry] = useState('')
   const { t, locale } = useLocale()
 
@@ -141,21 +140,13 @@ export function ProductModal({ isOpen, onClose, categoryKey }: ProductModalProps
             </motion.button>
 
             <div className="flex flex-col lg:flex-row max-h-[90vh] overflow-y-auto">
-              {/* Left: 360° Viewer */}
+              {/* Left: Product Image */}
               <div className="lg:w-1/2 p-8 lg:p-12 bg-cream flex flex-col items-center justify-center min-h-[400px]">
-                {/* Main Image with Rotation */}
-                <div className="relative w-full max-w-md aspect-square mb-6">
-                  <motion.div
-                    className="absolute inset-0 rounded-full border-2 border-gold/20"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                  />
-                  <motion.div
-                    className="absolute inset-4 bg-cover bg-center rounded-lg shadow-xl"
-                    style={{ 
-                      backgroundImage: `url(${images.main})`,
-                      transform: `rotateY(${rotation}deg)`,
-                    }}
+                {/* Main Image */}
+                <div className="relative w-full max-w-md aspect-square">
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center rounded-lg shadow-xl"
+                    style={{ backgroundImage: `url(${images.main})` }}
                   />
                   {/* Quality Seal */}
                   <div className="absolute -bottom-2 -right-2 w-16 h-16 rounded-full bg-gold flex items-center justify-center shadow-lg">
@@ -164,27 +155,6 @@ export function ProductModal({ isOpen, onClose, categoryKey }: ProductModalProps
                       <span className="block text-xs font-serif font-semibold">Quality</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Rotation Control */}
-                <div className="flex items-center gap-4">
-                  <span className="text-navy/60 text-sm">360° View</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    value={rotation}
-                    onChange={(e) => setRotation(Number(e.target.value))}
-                    className="w-40 accent-gold"
-                  />
-                  <motion.button
-                    onClick={() => setRotation(0)}
-                    className="p-2 text-navy/60 hover:text-navy"
-                    whileTap={{ rotate: -360 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </motion.button>
                 </div>
               </div>
 
