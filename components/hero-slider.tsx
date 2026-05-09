@@ -103,7 +103,7 @@ export function HeroSlider() {
             href="/showroom"
             className="group inline-flex items-center gap-3 px-8 py-4 bg-white text-slate-900 font-sans text-sm font-medium tracking-[0.15em] uppercase hover:bg-slate-100 transition-colors"
           >
-            <span>Explore Collection</span>
+            <span>{t.hero.cta}</span>
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </motion.div>
